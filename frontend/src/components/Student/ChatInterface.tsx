@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useSession } from '../../contexts/SessionContext';
 import { useNavigate } from 'react-router-dom';
-import { Send, StopCircle, Clock, ArrowLeft, Trophy, Target } from 'lucide-react';
+import { Send, StopCircle, Clock, ArrowLeft, Trophy, Target, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { GoalsSidebar } from './GoalsSidebar';
 import { apiService } from '../../services/api.service';
@@ -9,7 +9,7 @@ import { NegotiationConfiguration, AchievementLevel, TrophyLevel } from '../../t
 import { Button, Card, Badge, Input } from '../ui';
 
 export const ChatInterface: React.FC = () => {
-  const { activeSession, sendMessage, endSession, isLoading } = useSession();
+  const { activeSession, sendMessage, endSession, cancelSession, isLoading } = useSession();
   const [message, setMessage] = useState('');
   const [showOutcome, setShowOutcome] = useState(false);
   const [configuration, setConfiguration] = useState<NegotiationConfiguration | null>(null);
@@ -87,13 +87,24 @@ export const ChatInterface: React.FC = () => {
   };
 
   const handleEnd = async () => {
-    if (!confirm('Are you sure you want to end this negotiation?')) return;
+    if (!confirm('Are you sure you want to end this negotiation? Your performance will be evaluated.')) return;
 
     try {
       await endSession();
       setShowOutcome(true);
     } catch (error) {
       console.error('Failed to end session:', error);
+    }
+  };
+
+  const handleCancel = async () => {
+    if (!confirm('Are you sure you want to cancel this negotiation? This session will be abandoned without evaluation.')) return;
+
+    try {
+      await cancelSession();
+      navigate('/student');
+    } catch (error) {
+      console.error('Failed to cancel session:', error);
     }
   };
 
@@ -260,14 +271,31 @@ export const ChatInterface: React.FC = () => {
                 </div>
               )}
             </div>
-            <Button
-              variant="danger"
-              onClick={handleEnd}
-              disabled={isLoading}
-              leftIcon={<StopCircle size={18} />}
-            >
-              End Session
-            </Button>
+            <div className="flex gap-3">
+              <Button
+                variant="secondary"
+                onClick={() => navigate('/student')}
+                leftIcon={<ArrowLeft size={18} />}
+              >
+                Exit to Dashboard
+              </Button>
+              <Button
+                variant="danger"
+                onClick={handleCancel}
+                disabled={isLoading}
+                leftIcon={<X size={18} />}
+              >
+                Cancel Negotiation
+              </Button>
+              <Button
+                variant="success"
+                onClick={handleEnd}
+                disabled={isLoading}
+                leftIcon={<StopCircle size={18} />}
+              >
+                End Negotiation
+              </Button>
+            </div>
           </div>
         </div>
 

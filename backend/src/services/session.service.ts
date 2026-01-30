@@ -282,8 +282,25 @@ export class SessionService {
       return null;
     }
 
+    // Calculate current time remaining if session is still active
+    let timeRemaining = session.timeRemaining;
+    if (session.isActive && timeRemaining !== null && session.startTime && session.configuration.timeLimit > 0) {
+      const elapsed = Math.floor((Date.now() - session.startTime.getTime()) / 1000);
+      timeRemaining = Math.max(0, (session.configuration.timeLimit * 60) - elapsed);
+    }
+
     const messages: Message[] = JSON.parse(session.messages as string);
-    return this.mapSession(session, messages);
+    const mappedSession = this.mapSession(session, messages);
+
+    // Override with calculated timeRemaining if active
+    if (session.isActive) {
+      return {
+        ...mappedSession,
+        timeRemaining,
+      };
+    }
+
+    return mappedSession;
   }
 
   async getActiveSession(studentId: string): Promise<NegotiationSession | null> {
@@ -301,8 +318,48 @@ export class SessionService {
       return null;
     }
 
+    // Calculate current time remaining
+    let timeRemaining = session.timeRemaining;
+    if (timeRemaining !== null && session.startTime && session.configuration.timeLimit > 0) {
+      const elapsed = Math.floor((Date.now() - session.startTime.getTime()) / 1000);
+      timeRemaining = Math.max(0, (session.configuration.timeLimit * 60) - elapsed);
+    }
+
     const messages: Message[] = JSON.parse(session.messages as string);
-    return this.mapSession(session, messages);
+    const mappedSession = this.mapSession(session, messages);
+
+    // Override with calculated timeRemaining
+    return {
+      ...mappedSession,
+      timeRemaining,
+    };
+  }
+
+  async cancelSession(sessionId: string, studentId: string): Promise<void> {
+    const session = await prisma.session.findUnique({
+      where: { id: sessionId },
+    });
+
+    if (!session) {
+      throw new Error('Session not found');
+    }
+
+    if (session.studentId !== studentId) {
+      throw new Error('Unauthorized');
+    }
+
+    if (!session.isActive) {
+      throw new Error('Session is already ended');
+    }
+
+    // Mark session as inactive without evaluation
+    await prisma.session.update({
+      where: { id: sessionId },
+      data: {
+        isActive: false,
+        endTime: new Date(),
+      },
+    });
   }
 
   private mapSession(session: any, messages: Message[]): NegotiationSession {

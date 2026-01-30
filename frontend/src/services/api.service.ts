@@ -143,6 +143,12 @@ class ApiService {
     return data.outcome;
   }
 
+  async cancelSession(sessionId: string): Promise<void> {
+    await this.request(`/sessions/${sessionId}/cancel`, {
+      method: 'POST',
+    });
+  }
+
   async getSessionHistory(): Promise<NegotiationSession[]> {
     const data = await this.request<{ sessions: NegotiationSession[] }>('/sessions');
     return data.sessions;

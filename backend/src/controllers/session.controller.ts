@@ -83,6 +83,18 @@ export class SessionController {
       res.status(500).json({ error: error.message });
     }
   }
+
+  async cancel(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const { id } = req.params;
+      const studentId = req.user!.userId;
+
+      await sessionService.cancelSession(id, studentId);
+      res.json({ message: 'Session cancelled successfully' });
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  }
 }
 
 export const sessionController = new SessionController();

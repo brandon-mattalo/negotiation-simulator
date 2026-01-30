@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Play, Calendar, Clock, FileText } from 'lucide-react';
 import { motion } from 'framer-motion';
@@ -8,23 +8,27 @@ import { PageLayout } from '../components/Layout/PageLayout';
 import { Card, Badge, Button } from '../components/ui';
 import { Assignment } from '../types/negotiation';
 import { useToast } from '../components/ui';
+import { NegotiationLoadingScreen } from '../components/Student/NegotiationLoadingScreen';
 
 export const StudentAssignments: React.FC = () => {
   const { assignments, fetchAssignments } = useAssignment();
   const { startSession } = useSession();
   const navigate = useNavigate();
   const { showToast } = useToast();
+  const [isStartingSession, setIsStartingSession] = useState(false);
 
   useEffect(() => {
     fetchAssignments();
   }, []);
 
   const handleStartAssignment = async (assignment: Assignment) => {
+    setIsStartingSession(true);
     try {
       await startSession(assignment.configurationId, assignment.id);
       navigate('/student/negotiate');
     } catch (error: any) {
       showToast('error', error.message || 'Failed to start session');
+      setIsStartingSession(false);
     }
   };
 
@@ -43,10 +47,13 @@ export const StudentAssignments: React.FC = () => {
   };
 
   return (
-    <PageLayout
-      title="My Assignments"
-      subtitle="View and start your negotiation assignments"
-    >
+    <>
+      {isStartingSession && <NegotiationLoadingScreen />}
+
+      <PageLayout
+        title="My Assignments"
+        subtitle="View and start your negotiation assignments"
+      >
       {assignments.length === 0 ? (
         <Card padding="lg" className="text-center">
           <div className="w-20 h-20 mx-auto mb-6 rounded-3xl bg-neutral-100 flex items-center justify-center">
@@ -124,5 +131,6 @@ export const StudentAssignments: React.FC = () => {
         </div>
       )}
     </PageLayout>
+    </>
   );
 };

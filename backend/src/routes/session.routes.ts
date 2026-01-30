@@ -28,4 +28,6 @@ router.post(
 
 router.post('/:id/end', sessionController.end.bind(sessionController));
 
+router.post('/:id/cancel', sessionController.cancel.bind(sessionController));
+
 export default router;

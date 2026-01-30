@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Play, FileText, History, ClipboardList, CheckCircle, Clock, AlertCircle } from 'lucide-react';
+import { Play, FileText, History, ClipboardList, CheckCircle, Clock, AlertCircle, MessageSquare, Timer } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useAssignment } from '../contexts/AssignmentContext';
 import { useSession } from '../contexts/SessionContext';
@@ -9,6 +9,7 @@ import { PageLayout } from '../components/Layout/PageLayout';
 import { Button, Card, StatCard, Badge, SkeletonCard } from '../components/ui';
 import { Assignment } from '../types/negotiation';
 import { useToast } from '../components/ui';
+import { NegotiationLoadingScreen } from '../components/Student/NegotiationLoadingScreen';
 
 export const StudentDashboard: React.FC = () => {
   const { assignments, fetchAssignments, isLoading: assignmentsLoading } = useAssignment();
@@ -16,6 +17,7 @@ export const StudentDashboard: React.FC = () => {
   const { startSession, loadActiveSession, activeSession } = useSession();
   const navigate = useNavigate();
   const { showToast } = useToast();
+  const [isStartingSession, setIsStartingSession] = useState(false);
 
   useEffect(() => {
     fetchAssignments();
@@ -23,18 +25,14 @@ export const StudentDashboard: React.FC = () => {
     loadActiveSession();
   }, []);
 
-  useEffect(() => {
-    if (activeSession) {
-      navigate('/student/negotiate');
-    }
-  }, [activeSession, navigate]);
-
   const handleStartAssignment = async (assignment: Assignment) => {
+    setIsStartingSession(true);
     try {
       await startSession(assignment.configurationId, assignment.id);
       navigate('/student/negotiate');
     } catch (error: any) {
       showToast('error', error.message || 'Failed to start session');
+      setIsStartingSession(false);
     }
   };
 
@@ -45,11 +43,13 @@ export const StudentDashboard: React.FC = () => {
       return;
     }
 
+    setIsStartingSession(true);
     try {
       await startSession(activeConfig.id);
       navigate('/student/negotiate');
     } catch (error: any) {
       showToast('error', error.message || 'Failed to start session');
+      setIsStartingSession(false);
     }
   };
 
@@ -61,11 +61,34 @@ export const StudentDashboard: React.FC = () => {
   const inProgressCount = assignments.filter(a => a.status === 'in_progress').length;
   const overdueCount = assignments.filter(a => a.status === 'overdue').length;
 
+  const formatTimeRemaining = (seconds: number | undefined): string => {
+    if (!seconds || seconds <= 0) return 'No time limit';
+
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+
+    if (hours > 0) {
+      return `${hours}h ${minutes}m remaining`;
+    } else if (minutes > 0) {
+      return `${minutes}m ${secs}s remaining`;
+    } else {
+      return `${secs}s remaining`;
+    }
+  };
+
+  const handleResumeSession = () => {
+    navigate('/student/negotiate');
+  };
+
   return (
-    <PageLayout
-      title="Dashboard"
-      subtitle="Welcome back! Here's your negotiation overview"
-    >
+    <>
+      {isStartingSession && <NegotiationLoadingScreen />}
+
+      <PageLayout
+        title="Dashboard"
+        subtitle="Welcome back! Here's your negotiation overview"
+      >
       {/* Quick Actions */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
         <Button
@@ -124,6 +147,51 @@ export const StudentDashboard: React.FC = () => {
           color="rose"
         />
       </div>
+
+      {/* Active Sessions */}
+      {activeSession && (
+        <Card padding="lg" className="mb-8 bg-gradient-to-r from-primary-50 to-sky-50 border-2 border-primary-200">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-12 h-12 rounded-2xl bg-primary-500 flex items-center justify-center">
+              <MessageSquare size={24} className="text-white" />
+            </div>
+            <div>
+              <h2 className="text-2xl font-bold text-neutral-900">Active Negotiation</h2>
+              <p className="text-sm text-neutral-600">You have a negotiation in progress</p>
+            </div>
+          </div>
+
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white rounded-2xl p-6 border border-primary-200">
+            <div className="flex-1">
+              <div className="flex items-center gap-2 mb-2">
+                <Badge variant="success" className="animate-pulse">
+                  In Progress
+                </Badge>
+                <Badge variant="neutral">
+                  {activeSession.messages.length} messages
+                </Badge>
+              </div>
+              <p className="text-sm text-neutral-600 mb-3">
+                Started: {new Date(activeSession.startTime).toLocaleString()}
+              </p>
+              <div className="flex items-center gap-2 text-primary-600">
+                <Timer size={18} />
+                <span className="font-semibold">
+                  {formatTimeRemaining(activeSession.timeRemaining)}
+                </span>
+              </div>
+            </div>
+            <Button
+              variant="primary"
+              size="lg"
+              onClick={handleResumeSession}
+              leftIcon={<Play size={20} />}
+            >
+              Resume Negotiation
+            </Button>
+          </div>
+        </Card>
+      )}
 
       {/* Upcoming Assignments */}
       <Card padding="lg">
@@ -189,5 +257,6 @@ export const StudentDashboard: React.FC = () => {
         )}
       </Card>
     </PageLayout>
+    </>
   );
 };

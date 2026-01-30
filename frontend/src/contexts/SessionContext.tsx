@@ -8,6 +8,7 @@ interface SessionContextValue {
   startSession: (configId: string, assignmentId?: string) => Promise<void>;
   sendMessage: (message: string) => Promise<void>;
   endSession: () => Promise<SessionOutcome>;
+  cancelSession: () => Promise<void>;
   loadActiveSession: () => Promise<void>;
   loadSessionHistory: () => Promise<void>;
   isLoading: boolean;
@@ -91,6 +92,24 @@ export const SessionProvider: React.FC<{ children: ReactNode }> = ({ children })
     }
   };
 
+  const cancelSession = async (): Promise<void> => {
+    if (!activeSession) {
+      throw new Error('No active session');
+    }
+
+    setIsLoading(true);
+    setError(null);
+    try {
+      await apiService.cancelSession(activeSession.id);
+      setActiveSession(null);
+    } catch (err: any) {
+      setError(err.message);
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const loadActiveSession = async () => {
     setIsLoading(true);
     try {
@@ -123,6 +142,7 @@ export const SessionProvider: React.FC<{ children: ReactNode }> = ({ children })
         startSession,
         sendMessage,
         endSession,
+        cancelSession,
         loadActiveSession,
         loadSessionHistory,
         isLoading,
