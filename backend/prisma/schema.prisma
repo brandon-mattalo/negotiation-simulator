@@ -1,0 +1,129 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  instructor
+  student
+}
+
+enum BotStrategy {
+  collaborative
+  competitive
+  analytical
+  emotional
+}
+
+enum DifficultyLevel {
+  easy
+  medium
+  hard
+  expert
+}
+
+enum AssignmentType {
+  practice
+  exam
+}
+
+model User {
+  id            String    @id @default(uuid())
+  username      String    @unique
+  passwordHash  String    @map("password_hash")
+  role          UserRole
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  configurations Configuration[]
+  sessions       Session[]       @relation("StudentSessions")
+  assignments    Assignment[]    @relation("StudentAssignments")
+  instructorAssignments Assignment[] @relation("InstructorAssignments")
+
+  @@map("users")
+}
+
+model Configuration {
+  id                 String         @id @default(uuid())
+  instructorId       String         @map("instructor_id")
+  name               String
+  scenario           String
+  studentGoals       Json           @map("student_goals")
+  botGoals           Json           @map("bot_goals")
+  studentConstraints Json           @map("student_constraints")
+  botConstraints     Json           @map("bot_constraints")
+  botStrategy        BotStrategy    @map("bot_strategy")
+  temperament        Int
+  difficulty         DifficultyLevel
+  timeLimit          Int            @map("time_limit")
+  personality        Json
+  isActive           Boolean        @default(false) @map("is_active")
+  createdAt          DateTime       @default(now()) @map("created_at")
+  updatedAt          DateTime       @updatedAt @map("updated_at")
+
+  instructor      User           @relation(fields: [instructorId], references: [id], onDelete: Cascade)
+  sessions        Session[]
+  assignments     Assignment[]
+
+  @@map("configurations")
+}
+
+model Session {
+  id              String    @id @default(uuid())
+  studentId       String    @map("student_id")
+  configurationId String    @map("configuration_id")
+  assignmentId    String?   @map("assignment_id")
+  messages        Json
+  startTime       DateTime  @default(now()) @map("start_time")
+  endTime         DateTime? @map("end_time")
+  timeRemaining   Int?      @map("time_remaining")
+  isActive        Boolean   @default(true) @map("is_active")
+  outcome         Json?
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  student         User          @relation("StudentSessions", fields: [studentId], references: [id], onDelete: Cascade)
+  configuration   Configuration @relation(fields: [configurationId], references: [id], onDelete: Cascade)
+  assignment      Assignment?   @relation(fields: [assignmentId], references: [id], onDelete: SetNull)
+
+  @@map("sessions")
+}
+
+model Template {
+  id            String   @id @default(uuid())
+  name          String
+  description   String
+  configuration Json
+  isDefault     Boolean  @default(true) @map("is_default")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  @@map("templates")
+}
+
+model Assignment {
+  id              String         @id @default(uuid())
+  instructorId    String         @map("instructor_id")
+  configurationId String         @map("configuration_id")
+  studentId       String         @map("student_id")
+  name            String
+  description     String
+  assignmentType  AssignmentType @map("assignment_type")
+  theme           String?
+  availableFrom   DateTime       @map("available_from")
+  availableUntil  DateTime       @map("available_until")
+  deadline        DateTime
+  isActive        Boolean        @default(true) @map("is_active")
+  createdAt       DateTime       @default(now()) @map("created_at")
+  updatedAt       DateTime       @updatedAt @map("updated_at")
+
+  instructor      User          @relation("InstructorAssignments", fields: [instructorId], references: [id], onDelete: Cascade)
+  configuration   Configuration @relation(fields: [configurationId], references: [id], onDelete: Cascade)
+  student         User          @relation("StudentAssignments", fields: [studentId], references: [id], onDelete: Cascade)
+  sessions        Session[]
+
+  @@map("assignments")
+}
