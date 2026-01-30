@@ -5,8 +5,7 @@
   "main": "dist/server.js",
   "scripts": {
     "dev": "tsx watch src/server.ts",
-    "build": "npm run copy-types && prisma generate && tsc",
-    "copy-types": "mkdir -p src/shared && cp -r ../shared/types src/shared/ || true",
+    "build": "prisma generate && tsc",
     "start": "node dist/server.js",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate deploy",

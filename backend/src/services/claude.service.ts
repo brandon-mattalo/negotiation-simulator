@@ -5,7 +5,7 @@ import {
   SessionOutcome,
   OutcomeType,
   CriteriaEvaluation,
-} from '../shared/types/negotiation';
+} from '../types/negotiation';
 
 const CLAUDE_API_KEY = process.env.CLAUDE_API_KEY || '';
 const CLAUDE_API_URL = 'https://api.anthropic.com/v1/messages';

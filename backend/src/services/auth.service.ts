@@ -1,6 +1,6 @@
 import bcrypt from 'bcrypt';
 import { PrismaClient } from '@prisma/client';
-import { User, UserRole } from '../shared/types/negotiation';
+import { User, UserRole } from '../types/negotiation';
 import { generateToken } from '../utils/jwt.util';
 import { validateUsername, validatePassword } from '../utils/validation.util';
 

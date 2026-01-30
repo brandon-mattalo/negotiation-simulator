@@ -5,7 +5,7 @@ import {
   Message,
   SessionOutcome,
   UserRole,
-} from '../shared/types/negotiation';
+} from '../types/negotiation';
 import { claudeService } from './claude.service';
 import { validateMessage } from '../utils/validation.util';
 
