@@ -1,7 +1,7 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { assignmentService } from '../services/assignment.service';
-import { AssignmentType } from '../../../shared/types/negotiation';
+import { AssignmentType } from '../shared/types/negotiation';
 
 export class AssignmentController {
   async list(req: AuthRequest, res: Response): Promise<void> {

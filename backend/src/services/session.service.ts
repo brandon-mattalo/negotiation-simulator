@@ -5,7 +5,7 @@ import {
   Message,
   SessionOutcome,
   UserRole,
-} from '../../../shared/types/negotiation';
+} from '../shared/types/negotiation';
 import { claudeService } from './claude.service';
 import { validateMessage } from '../utils/validation.util';
 
@@ -296,7 +296,7 @@ export class SessionService {
     if (session.isActive) {
       return {
         ...mappedSession,
-        timeRemaining,
+        timeRemaining: timeRemaining ?? undefined,
       };
     }
 
@@ -331,7 +331,7 @@ export class SessionService {
     // Override with calculated timeRemaining
     return {
       ...mappedSession,
-      timeRemaining,
+      timeRemaining: timeRemaining ?? undefined,
     };
   }
 

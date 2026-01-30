@@ -1,6 +1,6 @@
 import { Response, NextFunction } from 'express';
 import { AuthRequest } from './auth.middleware';
-import { UserRole } from '../../../shared/types/negotiation';
+import { UserRole } from '../shared/types/negotiation';
 
 export const requireRole = (role: UserRole) => {
   return (req: AuthRequest, res: Response, next: NextFunction): void => {

@@ -1,5 +1,5 @@
 import jwt from 'jsonwebtoken';
-import { User } from '../../../shared/types/negotiation';
+import { User } from '../shared/types/negotiation';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'default-secret-change-this';
 const JWT_EXPIRATION = '24h';

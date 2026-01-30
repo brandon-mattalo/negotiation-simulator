@@ -1,5 +1,5 @@
 import { PrismaClient } from '@prisma/client';
-import { Assignment, AssignmentStatus, AssignmentType } from '../../../shared/types/negotiation';
+import { Assignment, AssignmentStatus, AssignmentType } from '../shared/types/negotiation';
 
 const prisma = new PrismaClient();
 
