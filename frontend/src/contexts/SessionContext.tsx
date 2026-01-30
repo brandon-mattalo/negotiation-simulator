@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react';
-import { NegotiationSession, Message, SessionOutcome } from '../types/negotiation';
+import { NegotiationSession, SessionOutcome } from '../types/negotiation';
 import { apiService } from '../services/api.service';
 
 interface SessionContextValue {

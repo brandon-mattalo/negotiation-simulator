@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import clsx from 'clsx';
 
 export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary' | 'success' | 'danger' | 'outline' | 'ghost';
+  variant?: 'primary' | 'secondary' | 'success' | 'danger' | 'warning' | 'outline' | 'ghost';
   size?: 'sm' | 'md' | 'lg';
   isLoading?: boolean;
   leftIcon?: React.ReactNode;
@@ -29,6 +29,7 @@ export const Button: React.FC<ButtonProps> = ({
     secondary: 'bg-neutral-100 text-neutral-900 hover:bg-neutral-200 focus:ring-neutral-500 shadow-soft hover:shadow-soft-md',
     success: 'bg-success-500 text-white hover:bg-success-600 focus:ring-success-500 shadow-soft hover:shadow-soft-md',
     danger: 'bg-danger-500 text-white hover:bg-danger-600 focus:ring-danger-500 shadow-soft hover:shadow-soft-md',
+    warning: 'bg-warning-500 text-white hover:bg-warning-600 focus:ring-warning-500 shadow-soft hover:shadow-soft-md',
     outline: 'bg-transparent border-2 border-neutral-300 text-neutral-700 hover:border-primary-500 hover:text-primary-500 focus:ring-primary-500',
     ghost: 'bg-transparent text-neutral-700 hover:bg-neutral-100 focus:ring-neutral-500',
   };
@@ -50,7 +51,7 @@ export const Button: React.FC<ButtonProps> = ({
         className
       )}
       disabled={disabled || isLoading}
-      {...props}
+      {...(props as any)}
     >
       {isLoading ? (
         <>

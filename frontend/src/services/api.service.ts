@@ -38,7 +38,7 @@ class ApiService {
     };
 
     if (this.token) {
-      headers['Authorization'] = `Bearer ${this.token}`;
+      (headers as Record<string, string>)['Authorization'] = `Bearer ${this.token}`;
     }
 
     const response = await fetch(`${this.baseUrl}${endpoint}`, {
@@ -271,11 +271,6 @@ class ApiService {
   async getStudents(): Promise<User[]> {
     const data = await this.request<{ students: User[] }>('/instructor/students');
     return data.students;
-  }
-
-  async getConfiguration(id: string): Promise<NegotiationConfiguration> {
-    const data = await this.request<{ configuration: NegotiationConfiguration }>(`/configurations/${id}`);
-    return data.configuration;
   }
 }
 

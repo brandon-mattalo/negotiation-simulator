@@ -86,7 +86,7 @@ export const Sidebar: React.FC = () => {
       <div className="flex flex-col items-center gap-3 w-full px-3">
         <div className="w-full h-px bg-neutral-200" />
         <Avatar
-          name={user?.name || user?.email || 'User'}
+          name={user?.username || 'User'}
           size="md"
           className="cursor-pointer hover:ring-2 hover:ring-primary-500 transition-all"
         />

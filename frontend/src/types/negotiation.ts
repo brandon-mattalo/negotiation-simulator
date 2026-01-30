@@ -22,12 +22,14 @@ export interface NegotiationConfiguration {
   instructorId: string;
   name: string;
   scenario: string;
-  context: string;
+  studentGoals: string[];
+  botGoals: string[];
+  studentConstraints: string[];
+  botConstraints: string[];
   botStrategy: BotStrategy;
   temperament: Temperament;
   difficulty: DifficultyLevel;
   timeLimit: number; // minutes, 0 = unlimited
-  successCriteria: SuccessCriterion[];
   personality: BotPersonality;
   isActive: boolean;
   createdAt: Date;
@@ -78,16 +80,13 @@ export interface SessionOutcome {
 }
 
 export type TrophyLevel = 'bronze' | 'silver' | 'gold';
-
-export interface SuccessCriterion {
-  criterion: string;
-  trophyLevel: TrophyLevel;
-}
+export type AchievementLevel = 'fail' | 'close' | 'achieve' | 'exceed';
 
 export interface CriteriaEvaluation {
-  criterion: string;
-  trophyLevel: TrophyLevel;
-  achieved: boolean;
+  goal: string; // The student goal being evaluated
+  achievementLevel: AchievementLevel; // fail/close/achieve/exceed
+  trophyLevel?: TrophyLevel; // bronze (close), silver (achieve), gold (exceed), undefined (fail)
+  achieved: boolean; // true if close or better (has a trophy)
   notes: string;
 }
 

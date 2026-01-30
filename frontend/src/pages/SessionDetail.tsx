@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, MessageSquare, Trophy, Calendar, Clock } from 'lucide-react';
+import { ArrowLeft, MessageSquare, Trophy } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { PageLayout } from '../components/Layout/PageLayout';
 import { Card, Badge, Button, SkeletonCard } from '../components/ui';
@@ -77,20 +77,7 @@ export const SessionDetail: React.FC = () => {
   return (
     <PageLayout
       title="Session Details"
-      subtitle={
-        <div className="flex items-center gap-4 flex-wrap">
-          <div className="flex items-center gap-2">
-            <Calendar size={16} />
-            <span>Started: {new Date(session.startTime).toLocaleString()}</span>
-          </div>
-          {session.endTime && (
-            <div className="flex items-center gap-2">
-              <Clock size={16} />
-              <span>Ended: {new Date(session.endTime).toLocaleString()}</span>
-            </div>
-          )}
-        </div>
-      }
+      subtitle={`Started: ${new Date(session.startTime).toLocaleString()}${session.endTime ? ` • Ended: ${new Date(session.endTime).toLocaleString()}` : ''}`}
       actions={
         <Button
           variant="secondary"
