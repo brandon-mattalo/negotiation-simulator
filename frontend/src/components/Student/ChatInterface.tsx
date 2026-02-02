@@ -342,14 +342,19 @@ export const ChatInterface: React.FC = () => {
         <div className="bg-white border-t border-neutral-200 p-4 shadow-soft">
           <div className="flex gap-3 items-end max-w-5xl mx-auto">
             <div className="flex-1">
-              <input
-                type="text"
+              <textarea
+                rows={3}
                 value={message}
                 onChange={e => setMessage(e.target.value)}
-                onKeyPress={e => e.key === 'Enter' && !e.shiftKey && handleSend()}
-                placeholder="Type your message..."
+                onKeyPress={e => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSend();
+                  }
+                }}
+                placeholder="Type your message... (Shift+Enter for new line)"
                 disabled={isLoading}
-                className="w-full px-6 py-3 border border-neutral-300 rounded-2xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-base transition-all"
+                className="w-full px-6 py-3 border border-neutral-300 rounded-2xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-base transition-all resize-y min-h-[60px]"
               />
             </div>
             <Button

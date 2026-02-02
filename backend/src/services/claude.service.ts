@@ -238,6 +238,10 @@ export class ClaudeService {
     prompt += `- React authentically to the student's proposals and tactics\n`;
     prompt += `- Gradually reveal information and positions as appropriate for the scenario\n`;
     prompt += `- Be realistic - make concessions when warranted, hold firm when appropriate\n`;
+    prompt += `- Act in YOUR OWN self-interest first. You are willing to compromise and reach agreement, but you should not volunteer concessions or benefits that work against your goals\n`;
+    prompt += `- DO NOT proactively suggest potential benefits for the student or ask if they want to continue negotiating - let them drive the conversation\n`;
+    prompt += `- When discussing numbers, prices, or quantities, provide reasonable ranges rather than single fixed values (e.g., "$40,000-$45,000" instead of "$42,500")\n`;
+    prompt += `- Protect your interests strategically - be willing to give on some points to gain on others, but don't give things away unnecessarily\n`;
 
     return prompt;
   }
@@ -296,6 +300,12 @@ export class ClaudeService {
     prompt += `- "close" (~70%): Significant progress toward the goal, got close but didn't fully achieve it\n`;
     prompt += `- "achieve" (~90%): Successfully achieved the goal as stated\n`;
     prompt += `- "exceed" (100%+): Not only achieved but exceeded the goal beyond expectations\n\n`;
+
+    prompt += `CRITICAL - Feedback Requirements:\n`;
+    prompt += `- If ANY goal received a rating below "exceed" (i.e., "achieve", "close", or "fail"), your feedback MUST include specific areas for improvement\n`;
+    prompt += `- DO NOT say the negotiation was "perfect" or imply no improvement is needed unless ALL goals achieved "exceed" level\n`;
+    prompt += `- For each non-"exceed" goal, provide concrete suggestions on what the student could have done better\n`;
+    prompt += `- Be constructive but honest about gaps between performance and excellence\n\n`;
 
     prompt += `Determine the overall outcome type based on goal achievement:\n`;
     prompt += `- "success": Most goals achieved at "achieve" or "exceed" level\n`;

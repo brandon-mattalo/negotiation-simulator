@@ -26,9 +26,14 @@ const limiter = rateLimit({
 
 // Middleware
 app.use(cors({
-  origin: FRONTEND_URL,
+  origin: process.env.NODE_ENV === 'production'
+    ? FRONTEND_URL
+    : true, // Allow all origins in development
   credentials: true,
 }));
+
+// Log CORS configuration for debugging
+console.log('CORS enabled for:', FRONTEND_URL);
 app.use(express.json());
 app.use(limiter);
 

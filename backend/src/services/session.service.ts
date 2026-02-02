@@ -99,7 +99,7 @@ export class SessionService {
       content: await claudeService.generateBotResponse(
         this.mapConfiguration(session.configuration),
         [initialMessage],
-        'Begin the negotiation with an opening statement.'
+        'Begin the negotiation with an opening statement. Make sure to clearly state your initial offer or position in this first message.'
       ),
       timestamp: new Date(),
     };
