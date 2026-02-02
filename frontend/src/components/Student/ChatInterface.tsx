@@ -14,6 +14,10 @@ export const ChatInterface: React.FC = () => {
   const [showOutcome, setShowOutcome] = useState(false);
   const [configuration, setConfiguration] = useState<NegotiationConfiguration | null>(null);
   const [achievementLevels, setAchievementLevels] = useState<Map<number, { level: AchievementLevel; trophy?: TrophyLevel }>>(new Map());
+  const [textareaHeight, setTextareaHeight] = useState(96); // Initial height in pixels (roughly 3 rows)
+  const [isResizing, setIsResizing] = useState(false);
+  const resizeStartY = useRef(0);
+  const resizeStartHeight = useRef(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
 
@@ -107,6 +111,35 @@ export const ChatInterface: React.FC = () => {
       console.error('Failed to cancel session:', error);
     }
   };
+
+  const handleResizeStart = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsResizing(true);
+    resizeStartY.current = e.clientY;
+    resizeStartHeight.current = textareaHeight;
+  };
+
+  useEffect(() => {
+    const handleResizeMove = (e: MouseEvent) => {
+      if (!isResizing) return;
+      const deltaY = resizeStartY.current - e.clientY; // Inverted because we're dragging up
+      const newHeight = Math.max(60, Math.min(400, resizeStartHeight.current + deltaY));
+      setTextareaHeight(newHeight);
+    };
+
+    const handleResizeEnd = () => {
+      setIsResizing(false);
+    };
+
+    if (isResizing) {
+      document.addEventListener('mousemove', handleResizeMove);
+      document.addEventListener('mouseup', handleResizeEnd);
+      return () => {
+        document.removeEventListener('mousemove', handleResizeMove);
+        document.removeEventListener('mouseup', handleResizeEnd);
+      };
+    }
+  }, [isResizing]);
 
   if (showOutcome && activeSession.outcome) {
     const outcomeColors = {
@@ -341,9 +374,15 @@ export const ChatInterface: React.FC = () => {
         {/* Input Area */}
         <div className="bg-white border-t border-neutral-200 p-4 shadow-soft">
           <div className="flex gap-3 items-end max-w-5xl mx-auto">
-            <div className="flex-1">
+            <div className="flex-1 relative">
+              {/* Resize Handle */}
+              <div
+                onMouseDown={handleResizeStart}
+                className={`absolute left-0 right-0 top-0 h-2 -mt-2 flex items-center justify-center cursor-ns-resize group z-10 ${isResizing ? 'opacity-100' : 'opacity-0 hover:opacity-100'} transition-opacity`}
+              >
+                <div className="w-12 h-1 bg-neutral-300 rounded-full group-hover:bg-primary-400 transition-colors" />
+              </div>
               <textarea
-                rows={3}
                 value={message}
                 onChange={e => setMessage(e.target.value)}
                 onKeyPress={e => {
@@ -354,7 +393,8 @@ export const ChatInterface: React.FC = () => {
                 }}
                 placeholder="Type your message... (Shift+Enter for new line)"
                 disabled={isLoading}
-                className="w-full px-6 py-3 border border-neutral-300 rounded-2xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-base transition-all resize-y min-h-[60px]"
+                style={{ height: `${textareaHeight}px` }}
+                className="w-full px-6 py-3 border border-neutral-300 rounded-2xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-base transition-all resize-none"
               />
             </div>
             <Button
