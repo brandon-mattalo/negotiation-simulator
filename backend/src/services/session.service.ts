@@ -93,13 +93,26 @@ export class SessionService {
     });
 
     // Generate bot's opening message
+    const config = this.mapConfiguration(session.configuration);
+    let initialPrompt = 'Begin the negotiation with an opening statement. ';
+
+    if (config.botOpeningOffer && config.botOpeningOffer.length > 0) {
+      initialPrompt += 'Your opening offer includes the following specific terms that you MUST clearly state in natural language:\n';
+      config.botOpeningOffer.forEach((term, index) => {
+        initialPrompt += `${index + 1}. ${term}\n`;
+      });
+      initialPrompt += '\nPresent these terms naturally and professionally in your opening statement. Do not list them mechanically - weave them into your message.';
+    } else {
+      initialPrompt += 'You MUST explicitly state the specific terms of your initial offer (numbers, amounts, timeframes, etc.) in this first message. Do not assume they already know your offer - state it clearly with concrete details.';
+    }
+
     const botMessage: Message = {
       id: uuidv4(),
       role: 'bot',
       content: await claudeService.generateBotResponse(
-        this.mapConfiguration(session.configuration),
+        config,
         [initialMessage],
-        'Begin the negotiation with an opening statement. Make sure to clearly state your initial offer or position in this first message.'
+        initialPrompt
       ),
       timestamp: new Date(),
     };

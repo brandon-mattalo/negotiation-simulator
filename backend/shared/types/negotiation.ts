@@ -26,6 +26,7 @@ export interface NegotiationConfiguration {
   botGoals: string[];
   studentConstraints: string[];
   botConstraints: string[];
+  botOpeningOffer: string[];
   botStrategy: BotStrategy;
   temperament: Temperament;
   difficulty: DifficultyLevel;

@@ -19,6 +19,7 @@ export const InstructorConfigurationForm: React.FC = () => {
   const [botGoals, setBotGoals] = useState<string[]>(['']);
   const [studentConstraints, setStudentConstraints] = useState<string[]>(['']);
   const [botConstraints, setBotConstraints] = useState<string[]>(['']);
+  const [botOpeningOffer, setBotOpeningOffer] = useState<string[]>(['']);
   const [botStrategy, setBotStrategy] = useState<BotStrategy>('collaborative');
   const [temperament, setTemperament] = useState(5);
   const [difficulty, setDifficulty] = useState<DifficultyLevel>('medium');
@@ -44,6 +45,7 @@ export const InstructorConfigurationForm: React.FC = () => {
         setBotGoals(config.botGoals.length > 0 ? config.botGoals : ['']);
         setStudentConstraints(config.studentConstraints.length > 0 ? config.studentConstraints : ['']);
         setBotConstraints(config.botConstraints.length > 0 ? config.botConstraints : ['']);
+        setBotOpeningOffer(config.botOpeningOffer.length > 0 ? config.botOpeningOffer : ['']);
         setBotStrategy(config.botStrategy);
         setTemperament(config.temperament);
         setDifficulty(config.difficulty);
@@ -96,6 +98,7 @@ export const InstructorConfigurationForm: React.FC = () => {
       botGoals: filteredBotGoals,
       studentConstraints: studentConstraints.filter(c => c.trim() !== ''),
       botConstraints: botConstraints.filter(c => c.trim() !== ''),
+      botOpeningOffer: botOpeningOffer.filter(o => o.trim() !== ''),
       botStrategy,
       temperament,
       difficulty,
@@ -348,6 +351,47 @@ export const InstructorConfigurationForm: React.FC = () => {
                     className="mt-2"
                   >
                     Add Constraint
+                  </Button>
+                </div>
+
+                {/* Bot Opening Offer */}
+                <div className="mt-6">
+                  <label className="block text-sm font-medium text-neutral-700 mb-1.5">
+                    Bot Opening Offer
+                  </label>
+                  <p className="text-xs text-neutral-600 mb-3">
+                    What specific terms will the bot present in its opening statement? (e.g., salary amounts, vacation days, specific conditions)
+                  </p>
+                  {botOpeningOffer.map((offer, index) => (
+                    <div key={index} className="flex gap-2 mb-2">
+                      <input
+                        type="text"
+                        value={offer}
+                        onChange={e => handleItemChange(setBotOpeningOffer, botOpeningOffer, index, e.target.value)}
+                        className="flex-1 px-4 py-2.5 border border-neutral-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-warning-500 focus:border-warning-500 transition-all"
+                        placeholder={`Offer term ${index + 1} (e.g., "$55,000 starting salary")`}
+                      />
+                      {botOpeningOffer.length > 1 && (
+                        <Button
+                          type="button"
+                          variant="danger"
+                          size="sm"
+                          onClick={() => handleRemoveItem(setBotOpeningOffer, botOpeningOffer, index)}
+                        >
+                          <X size={16} />
+                        </Button>
+                      )}
+                    </div>
+                  ))}
+                  <Button
+                    type="button"
+                    variant="warning"
+                    size="sm"
+                    onClick={() => handleAddItem(setBotOpeningOffer, botOpeningOffer)}
+                    leftIcon={<Plus size={16} />}
+                    className="mt-2"
+                  >
+                    Add Offer Term
                   </Button>
                 </div>
               </Card>

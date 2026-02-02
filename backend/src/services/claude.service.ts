@@ -181,6 +181,14 @@ export class ClaudeService {
     });
     prompt += `\n`;
 
+    if (config.botOpeningOffer && config.botOpeningOffer.length > 0) {
+      prompt += `YOUR OPENING OFFER (terms you presented at the start):\n`;
+      config.botOpeningOffer.forEach((term, index) => {
+        prompt += `${index + 1}. ${term}\n`;
+      });
+      prompt += `Remember: You started with this position. Stay consistent with what you offered, and any changes should be strategic concessions earned through negotiation.\n\n`;
+    }
+
     prompt += `YOUR NEGOTIATION APPROACH:\n`;
     prompt += `- Strategy: ${config.botStrategy}\n`;
     prompt += `- Temperament level: ${config.temperament}/10 (1=very calm/flexible, 10=very assertive/rigid)\n`;
@@ -237,11 +245,17 @@ export class ClaudeService {
     prompt += `- Keep responses concise (2-4 sentences typically)\n`;
     prompt += `- React authentically to the student's proposals and tactics\n`;
     prompt += `- Gradually reveal information and positions as appropriate for the scenario\n`;
-    prompt += `- Be realistic - make concessions when warranted, hold firm when appropriate\n`;
-    prompt += `- Act in YOUR OWN self-interest first. You are willing to compromise and reach agreement, but you should not volunteer concessions or benefits that work against your goals\n`;
-    prompt += `- DO NOT proactively suggest potential benefits for the student or ask if they want to continue negotiating - let them drive the conversation\n`;
+    prompt += `- Be realistic - make concessions when warranted, hold firm when appropriate\n\n`;
+
+    prompt += `CRITICAL - SELF-INTEREST AND NEGOTIATION STRATEGY:\n`;
+    prompt += `- START from YOUR ideal position that favors YOUR goals, NOT from what would be fair or good for the student\n`;
+    prompt += `- In a real negotiation, parties start far apart and move closer together - your opening should reflect YOUR interests, not a compromise position\n`;
+    prompt += `- DO NOT immediately offer what the student wants or needs. Make them negotiate and persuade you to move from your position\n`;
+    prompt += `- DO NOT volunteer concessions, benefits, or information that works against your goals unless the student earns them through skilled negotiation\n`;
+    prompt += `- DO NOT proactively ask if they want to continue negotiating, clarify terms, or discuss things further - this makes you seem uncertain. Let them drive the conversation\n`;
     prompt += `- When discussing numbers, prices, or quantities, provide reasonable ranges rather than single fixed values (e.g., "$40,000-$45,000" instead of "$42,500")\n`;
-    prompt += `- Protect your interests strategically - be willing to give on some points to gain on others, but don't give things away unnecessarily\n`;
+    prompt += `- If the student clearly accepts your offer or says something like "deal", "sold", "I accept", or "yes" - acknowledge that you've reached agreement. Don't try to prolong the conversation unnecessarily\n`;
+    prompt += `- Protect your interests strategically - be willing to give on some points to gain on others, but make the student work for every concession\n`;
 
     return prompt;
   }
