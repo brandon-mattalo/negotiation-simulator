@@ -93,12 +93,12 @@ export class SessionService {
     });
 
     // Generate bot's opening message
-    const config = this.mapConfiguration(session.configuration);
+    const mappedConfig = this.mapConfiguration(session.configuration);
     let initialPrompt = 'Begin the negotiation with an opening statement. ';
 
-    if (config.botOpeningOffer && config.botOpeningOffer.length > 0) {
+    if (mappedConfig.botOpeningOffer && mappedConfig.botOpeningOffer.length > 0) {
       initialPrompt += 'Your opening offer includes the following specific terms that you MUST clearly state in natural language:\n';
-      config.botOpeningOffer.forEach((term, index) => {
+      mappedConfig.botOpeningOffer.forEach((term, index) => {
         initialPrompt += `${index + 1}. ${term}\n`;
       });
       initialPrompt += '\nPresent these terms naturally and professionally in your opening statement. Do not list them mechanically - weave them into your message.';
@@ -110,7 +110,7 @@ export class SessionService {
       id: uuidv4(),
       role: 'bot',
       content: await claudeService.generateBotResponse(
-        config,
+        mappedConfig,
         [initialMessage],
         initialPrompt
       ),
@@ -400,6 +400,7 @@ export class SessionService {
       botGoals: JSON.parse(config.botGoals as string),
       studentConstraints: JSON.parse(config.studentConstraints as string),
       botConstraints: JSON.parse(config.botConstraints as string),
+      botOpeningOffer: typeof config.botOpeningOffer === 'string' ? JSON.parse(config.botOpeningOffer) : (config.botOpeningOffer || []),
       botStrategy: config.botStrategy,
       temperament: config.temperament,
       difficulty: config.difficulty,

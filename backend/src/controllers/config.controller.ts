@@ -28,11 +28,11 @@ export class ConfigController {
         botGoals: JSON.parse(config.botGoals as string),
         studentConstraints: JSON.parse(config.studentConstraints as string),
         botConstraints: JSON.parse(config.botConstraints as string),
+        botOpeningOffer: typeof config.botOpeningOffer === 'string' ? JSON.parse(config.botOpeningOffer) : (config.botOpeningOffer || []),
         botStrategy: config.botStrategy,
         temperament: config.temperament,
         difficulty: config.difficulty,
         timeLimit: config.timeLimit,
-        
         personality: JSON.parse(config.personality as string),
         isActive: config.isActive,
         createdAt: config.createdAt,
@@ -67,11 +67,11 @@ export class ConfigController {
         botGoals: JSON.parse(config.botGoals as string),
         studentConstraints: JSON.parse(config.studentConstraints as string),
         botConstraints: JSON.parse(config.botConstraints as string),
+        botOpeningOffer: typeof config.botOpeningOffer === 'string' ? JSON.parse(config.botOpeningOffer) : (config.botOpeningOffer || []),
         botStrategy: config.botStrategy,
         temperament: config.temperament,
         difficulty: config.difficulty,
         timeLimit: config.timeLimit,
-        
         personality: JSON.parse(config.personality as string),
         isActive: config.isActive,
         createdAt: config.createdAt,
@@ -91,11 +91,11 @@ export class ConfigController {
         name,
         scenario,
         studentGoals, botGoals, studentConstraints, botConstraints,
+        botOpeningOffer,
         botStrategy,
         temperament,
         difficulty,
         timeLimit,
-        
         personality,
       } = req.body;
 
@@ -122,6 +122,7 @@ export class ConfigController {
           botGoals: JSON.stringify(botGoals),
           studentConstraints: JSON.stringify(studentConstraints),
           botConstraints: JSON.stringify(botConstraints),
+          botOpeningOffer: JSON.stringify(botOpeningOffer || []),
           botStrategy,
           temperament,
           difficulty,
@@ -140,11 +141,11 @@ export class ConfigController {
         botGoals: JSON.parse(config.botGoals as string),
         studentConstraints: JSON.parse(config.studentConstraints as string),
         botConstraints: JSON.parse(config.botConstraints as string),
+        botOpeningOffer: typeof config.botOpeningOffer === 'string' ? JSON.parse(config.botOpeningOffer) : (config.botOpeningOffer || []),
         botStrategy: config.botStrategy,
         temperament: config.temperament,
         difficulty: config.difficulty,
         timeLimit: config.timeLimit,
-        
         personality: JSON.parse(config.personality as string),
         isActive: config.isActive,
         createdAt: config.createdAt,
@@ -185,6 +186,7 @@ export class ConfigController {
         'botGoals',
         'studentConstraints',
         'botConstraints',
+        'botOpeningOffer',
         'botStrategy',
         'temperament',
         'difficulty',
@@ -196,7 +198,7 @@ export class ConfigController {
         if (field in req.body) {
           if (field === 'studentGoals' || field === 'botGoals' ||
               field === 'studentConstraints' || field === 'botConstraints' ||
-              field === 'personality') {
+              field === 'botOpeningOffer' || field === 'personality') {
             updates[field] = JSON.stringify(req.body[field]);
           } else {
             updates[field] = req.body[field];
@@ -235,11 +237,11 @@ export class ConfigController {
         botGoals: JSON.parse(config.botGoals as string),
         studentConstraints: JSON.parse(config.studentConstraints as string),
         botConstraints: JSON.parse(config.botConstraints as string),
+        botOpeningOffer: typeof config.botOpeningOffer === 'string' ? JSON.parse(config.botOpeningOffer) : (config.botOpeningOffer || []),
         botStrategy: config.botStrategy,
         temperament: config.temperament,
         difficulty: config.difficulty,
         timeLimit: config.timeLimit,
-        
         personality: JSON.parse(config.personality as string),
         isActive: config.isActive,
         createdAt: config.createdAt,
@@ -321,11 +323,11 @@ export class ConfigController {
         botGoals: JSON.parse(config.botGoals as string),
         studentConstraints: JSON.parse(config.studentConstraints as string),
         botConstraints: JSON.parse(config.botConstraints as string),
+        botOpeningOffer: typeof config.botOpeningOffer === 'string' ? JSON.parse(config.botOpeningOffer) : (config.botOpeningOffer || []),
         botStrategy: config.botStrategy,
         temperament: config.temperament,
         difficulty: config.difficulty,
         timeLimit: config.timeLimit,
-        
         personality: JSON.parse(config.personality as string),
         isActive: config.isActive,
         createdAt: config.createdAt,
