@@ -272,6 +272,44 @@ class ApiService {
     const data = await this.request<{ students: User[] }>('/instructor/students');
     return data.students;
   }
+  // Voice
+  async tts(text: string): Promise<Blob> {
+    const response = await fetch(`${this.baseUrl}/voice/tts`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(this.token ? { 'Authorization': `Bearer ${this.token}` } : {}),
+      },
+      body: JSON.stringify({ text }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: 'TTS failed' }));
+      throw new Error(error.error || `HTTP ${response.status}`);
+    }
+
+    return response.blob();
+  }
+
+  async stt(audioBlob: Blob, mimeType: string): Promise<string> {
+    const base64 = await this.blobToBase64(audioBlob);
+    const data = await this.request<{ text: string }>('/voice/stt', {
+      method: 'POST',
+      body: JSON.stringify({ audio: base64, mimeType }),
+    });
+    return data.text;
+  }
+
+  private async blobToBase64(blob: Blob): Promise<string> {
+    const buffer = await blob.arrayBuffer();
+    const bytes = new Uint8Array(buffer);
+    let binary = '';
+    const chunkSize = 8192;
+    for (let i = 0; i < bytes.length; i += chunkSize) {
+      binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+    }
+    return btoa(binary);
+  }
 }
 
 export const apiService = new ApiService();

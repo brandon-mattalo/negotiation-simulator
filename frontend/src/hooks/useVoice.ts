@@ -1,11 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { apiService } from '../services/api.service';
 
 interface UseVoiceOptions {
   onTranscriptComplete: (transcript: string) => void;
 }
-
-const API_KEY = import.meta.env.VITE_ELEVENLABS_API_KEY || '';
-const VOICE_ID = import.meta.env.VITE_ELEVENLABS_VOICE_ID || '21m00Tjm1fdNe8A04EOrtEArX';
 
 function getSupportedMimeType(): string {
   const types = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus', 'audio/mp4'];
@@ -46,10 +44,6 @@ export function useVoice({ onTranscriptComplete }: UseVoiceOptions) {
   }, []);
 
   const startListening = useCallback(async () => {
-    if (!API_KEY) {
-      setError('Add VITE_ELEVENLABS_API_KEY to your .env file');
-      return;
-    }
     setError(null);
     setInterimTranscript('');
 
@@ -77,25 +71,9 @@ export function useVoice({ onTranscriptComplete }: UseVoiceOptions) {
         setInterimTranscript('Transcribing...');
 
         try {
-          const ext = mimeType.includes('webm') ? 'webm' : mimeType.includes('mp4') ? 'mp4' : 'webm';
-          const formData = new FormData();
-          formData.append('file', audioBlob, `recording.${ext}`);
-          formData.append('model_id', 'scribe_v1');
-          formData.append('language', 'en');
-
-          const response = await fetch('https://api.elevenlabs.io/v1/speech-to-text', {
-            method: 'POST',
-            headers: { 'xi-api-key': API_KEY },
-            body: formData,
-          });
-
-          if (!response.ok) {
-            throw new Error(`Transcription failed (${response.status})`);
-          }
-
-          const result = await response.json();
-          if (result.text?.trim()) {
-            onCompleteRef.current(result.text.trim());
+          const text = await apiService.stt(audioBlob, mimeType);
+          if (text.trim()) {
+            onCompleteRef.current(text.trim());
           }
         } catch (err) {
           setError(err instanceof Error ? err.message : 'Transcription failed');
@@ -129,11 +107,6 @@ export function useVoice({ onTranscriptComplete }: UseVoiceOptions) {
   }, []);
 
   const speak = useCallback(async (text: string) => {
-    if (!API_KEY) {
-      setError('Add VITE_ELEVENLABS_API_KEY to your .env file');
-      return;
-    }
-
     if (audioRef.current) {
       audioRef.current.pause();
       URL.revokeObjectURL(audioRef.current.src);
@@ -144,25 +117,8 @@ export function useVoice({ onTranscriptComplete }: UseVoiceOptions) {
     setError(null);
 
     try {
-      const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${VOICE_ID}`, {
-        method: 'POST',
-        headers: {
-          'xi-api-key': API_KEY,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          text,
-          model_id: 'eleven_turbo_v2',
-          voice_settings: { stability: 0.5, similarity_boost: 0.75 },
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`Speech synthesis failed (${response.status})`);
-      }
-
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
+      const audioBlob = await apiService.tts(text);
+      const url = URL.createObjectURL(audioBlob);
       const audio = new Audio(url);
       audioRef.current = audio;
 

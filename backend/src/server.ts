@@ -9,6 +9,7 @@ import sessionRoutes from './routes/session.routes';
 import assignmentRoutes from './routes/assignment.routes';
 import templateRoutes from './routes/template.routes';
 import instructorRoutes from './routes/instructor.routes';
+import voiceRoutes from './routes/voice.routes';
 
 // Load environment variables
 dotenv.config();
@@ -49,6 +50,7 @@ app.use('/api/sessions', sessionRoutes);
 app.use('/api/assignments', assignmentRoutes);
 app.use('/api/templates', templateRoutes);
 app.use('/api/instructor', instructorRoutes);
+app.use('/api/voice', voiceRoutes);
 
 // Error handling middleware
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
