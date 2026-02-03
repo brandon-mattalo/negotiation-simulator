@@ -1,4 +1,5 @@
 import { Response } from 'express';
+import { Readable } from 'stream';
 import { Blob } from 'buffer';
 import { AuthRequest } from '../middleware/auth.middleware';
 
@@ -20,7 +21,7 @@ export class VoiceController {
 
     try {
       const response = await fetch(
-        `https://api.elevenlabs.io/v1/text-to-speech/${ELEVENLABS_VOICE_ID}`,
+        `https://api.elevenlabs.io/v1/text-to-speech/${ELEVENLABS_VOICE_ID}/stream`,
         {
           method: 'POST',
           headers: {
@@ -41,9 +42,13 @@ export class VoiceController {
         return;
       }
 
-      const audioBuffer = await response.arrayBuffer();
+      if (!response.body) {
+        res.status(500).json({ error: 'No stream in TTS response' });
+        return;
+      }
+
       res.setHeader('Content-Type', 'audio/mpeg');
-      res.send(Buffer.from(audioBuffer));
+      Readable.fromWeb(response.body as any).pipe(res);
     } catch (err) {
       console.error('TTS error:', err);
       res.status(500).json({ error: 'TTS request failed' });

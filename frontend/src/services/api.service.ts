@@ -129,10 +129,10 @@ class ApiService {
     return data.session;
   }
 
-  async sendMessage(sessionId: string, message: string): Promise<{ message: Message; botResponse: Message }> {
+  async sendMessage(sessionId: string, message: string, interruptedBot?: boolean): Promise<{ message: Message; botResponse: Message }> {
     return this.request(`/sessions/${sessionId}/message`, {
       method: 'POST',
-      body: JSON.stringify({ message }),
+      body: JSON.stringify({ message, ...(interruptedBot ? { interruptedBot: true } : {}) }),
     });
   }
 

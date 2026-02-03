@@ -132,7 +132,8 @@ export class SessionService {
   async sendMessage(
     sessionId: string,
     message: string,
-    studentId: string
+    studentId: string,
+    interruptedBot?: boolean
   ): Promise<{ message: Message; botResponse: Message }> {
     // Validate message
     const validation = validateMessage(message);
@@ -161,6 +162,17 @@ export class SessionService {
     // Parse existing messages
     const messages: Message[] = JSON.parse(session.messages as string);
 
+    // Record interruption in transcript if the student cut off the bot
+    if (interruptedBot) {
+      const interruptMessage: Message = {
+        id: uuidv4(),
+        role: 'system',
+        content: '[Student interrupted the bot\'s response]',
+        timestamp: new Date(),
+      };
+      messages.push(interruptMessage);
+    }
+
     // Create user message
     const userMessage: Message = {
       id: uuidv4(),
@@ -175,7 +187,8 @@ export class SessionService {
     const botResponseContent = await claudeService.generateBotResponse(
       this.mapConfiguration(session.configuration),
       messages,
-      message
+      message,
+      interruptedBot
     );
 
     const botMessage: Message = {

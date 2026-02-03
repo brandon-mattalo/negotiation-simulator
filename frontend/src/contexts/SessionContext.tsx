@@ -1,12 +1,12 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react';
-import { NegotiationSession, SessionOutcome } from '../types/negotiation';
+import { NegotiationSession, SessionOutcome, Message } from '../types/negotiation';
 import { apiService } from '../services/api.service';
 
 interface SessionContextValue {
   activeSession: NegotiationSession | null;
   sessionHistory: NegotiationSession[];
   startSession: (configId: string, assignmentId?: string) => Promise<void>;
-  sendMessage: (message: string) => Promise<void>;
+  sendMessage: (message: string, interruptedBot?: boolean) => Promise<void>;
   endSession: () => Promise<SessionOutcome>;
   cancelSession: () => Promise<void>;
   loadActiveSession: () => Promise<void>;
@@ -37,27 +37,47 @@ export const SessionProvider: React.FC<{ children: ReactNode }> = ({ children })
     }
   };
 
-  const sendMessage = async (message: string) => {
+  const sendMessage = async (message: string, interruptedBot?: boolean) => {
     if (!activeSession) {
       throw new Error('No active session');
     }
+
+    // Optimistic update: show user message immediately so the thinking bubble
+    // appears after it rather than floating above the last bot message.
+    const optimisticId = 'optimistic-' + Date.now();
+    const optimisticMessage: Message = {
+      id: optimisticId,
+      role: 'student',
+      content: message,
+      timestamp: new Date(),
+    };
+
+    setActiveSession(prev => {
+      if (!prev) return prev;
+      return { ...prev, messages: [...prev.messages, optimisticMessage] };
+    });
 
     setIsLoading(true);
     setError(null);
     try {
       const { message: userMessage, botResponse } = await apiService.sendMessage(
         activeSession.id,
-        message
+        message,
+        interruptedBot
       );
 
+      // Replace optimistic message with server-confirmed one, append bot response
       setActiveSession(prev => {
         if (!prev) return prev;
-        return {
-          ...prev,
-          messages: [...prev.messages, userMessage, botResponse],
-        };
+        const messages = prev.messages.filter(m => m.id !== optimisticId);
+        return { ...prev, messages: [...messages, userMessage, botResponse] };
       });
     } catch (err: any) {
+      // Roll back optimistic message on failure
+      setActiveSession(prev => {
+        if (!prev) return prev;
+        return { ...prev, messages: prev.messages.filter(m => m.id !== optimisticId) };
+      });
       setError(err.message);
       throw err;
     } finally {

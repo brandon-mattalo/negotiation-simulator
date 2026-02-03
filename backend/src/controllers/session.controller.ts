@@ -47,9 +47,9 @@ export class SessionController {
     try {
       const { id } = req.params;
       const studentId = req.user!.userId;
-      const { message } = req.body;
+      const { message, interruptedBot } = req.body;
 
-      const result = await sessionService.sendMessage(id, message, studentId);
+      const result = await sessionService.sendMessage(id, message, studentId, interruptedBot);
       res.json(result);
     } catch (error: any) {
       res.status(400).json({ error: error.message });

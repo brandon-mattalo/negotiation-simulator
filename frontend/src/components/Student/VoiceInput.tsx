@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 interface VoiceInputProps {
   isListening: boolean;
   isSpeaking: boolean;
+  isWaitingForResponse: boolean;
   interimTranscript: string;
   error: string | null;
   isDisabled: boolean;
@@ -14,6 +15,7 @@ interface VoiceInputProps {
 export const VoiceInput: React.FC<VoiceInputProps> = ({
   isListening,
   isSpeaking,
+  isWaitingForResponse,
   interimTranscript,
   error,
   isDisabled,
@@ -27,19 +29,23 @@ export const VoiceInput: React.FC<VoiceInputProps> = ({
 
   const statusText = error
     ? error
-    : isListening
-      ? 'Recording... tap to stop'
-      : isSpeaking
-        ? 'Bot is speaking... (tap to interrupt)'
-        : 'Tap to speak';
+    : isWaitingForResponse
+      ? 'Preparing response...'
+      : isListening
+        ? 'Recording... tap to stop'
+        : isSpeaking
+          ? 'Bot is speaking... (tap to interrupt)'
+          : 'Tap to speak';
 
   const statusColor = error
     ? 'text-danger-600'
-    : isListening
-      ? 'text-danger-600'
-      : isSpeaking
-        ? 'text-warning-600'
-        : 'text-neutral-500';
+    : isWaitingForResponse
+      ? 'text-primary-600'
+      : isListening
+        ? 'text-danger-600'
+        : isSpeaking
+          ? 'text-warning-600'
+          : 'text-neutral-500';
 
   return (
     <div className="flex flex-col items-center justify-center gap-4 py-6">

@@ -25,7 +25,8 @@ export class ClaudeService {
   async generateBotResponse(
     config: NegotiationConfiguration,
     conversationHistory: Message[],
-    userMessage: string
+    userMessage: string,
+    interruptedBot?: boolean
   ): Promise<string> {
     const systemPrompt = this.buildSystemPrompt(config);
 
@@ -37,10 +38,14 @@ export class ClaudeService {
         content: msg.content,
       }));
 
-    // Add the new user message
+    // If the student interrupted the bot, prepend context so the bot can react naturally
+    const messageContent = interruptedBot
+      ? `[Note: You were interrupted mid-response]\n\n${userMessage}`
+      : userMessage;
+
     messages.push({
       role: 'user',
-      content: userMessage,
+      content: messageContent,
     });
 
     const response = await this.callClaudeAPI(systemPrompt, messages);
@@ -238,6 +243,45 @@ export class ClaudeService {
       prompt += `You're assertive and stand firm on your interests. You push back on proposals that don't meet your needs. `;
     }
 
+    // Communication style
+    switch (config.personality.communicationStyle) {
+      case 'direct':
+        prompt += `You communicate directly — you state your position clearly and get straight to the point without ambiguity. You don't soften your language or beat around the bush, and you expect the same clarity from the other party. `;
+        break;
+      case 'indirect':
+        prompt += `You communicate indirectly — you hint at your positions rather than stating them outright, and you leave room for the other party to come to conclusions on their own. You avoid confrontational phrasing and use subtlety to guide the conversation. `;
+        break;
+      case 'diplomatic':
+        prompt += `You communicate diplomatically — you're honest about your position but frame things tactfully. You acknowledge the other party's perspective before presenting your own, and you choose your words to keep the door open even when pushing back. `;
+        break;
+    }
+
+    // Formality
+    switch (config.personality.formality) {
+      case 'casual':
+        prompt += `Your tone is casual and friendly — you use contractions, informal language, and a warm conversational style. You're approachable and relaxed, as if chatting with someone you know well. `;
+        break;
+      case 'professional':
+        prompt += `Your tone is professional and polished — business-appropriate language that is clear and organised, but not stuffy. You're courteous and respectful without being overly formal. `;
+        break;
+      case 'formal':
+        prompt += `Your tone is formal and proper — you use measured, careful language with complete sentences and respectful phrasing. You maintain a composed, dignified demeanor throughout and structure your ideas clearly before presenting them. `;
+        break;
+    }
+
+    // Emotional responsiveness
+    switch (config.personality.emotionalResponsiveness) {
+      case 'low':
+        prompt += `You keep your emotions firmly in check regardless of what the other party does. Lowball offers, flattery, or pressure tactics don't visibly affect you — your responses stay measured and businesslike. `;
+        break;
+      case 'medium':
+        prompt += `You show moderate emotional responses — a fair offer might earn a positive comment and a warmer tone, while an unreasonable one will earn a clear pushback. But you generally keep your composure and don't let emotions dominate. `;
+        break;
+      case 'high':
+        prompt += `You're emotionally responsive — you react visibly to proposals. A lowball or disrespectful offer will make you frustrated or offended, and you'll say so. A thoughtful, fair proposal will make you warmer and more open to compromise. Rapport-building and empathy can influence your willingness to make concessions, but aggression or condescension will make you pull back. `;
+        break;
+    }
+
     prompt += `\n\nIMPORTANT INSTRUCTIONS:\n`;
     prompt += `- Stay in character throughout the negotiation\n`;
     prompt += `- Respond naturally as a real negotiation partner would\n`;
@@ -245,7 +289,11 @@ export class ClaudeService {
     prompt += `- Keep responses concise (2-4 sentences typically)\n`;
     prompt += `- React authentically to the student's proposals and tactics\n`;
     prompt += `- Gradually reveal information and positions as appropriate for the scenario\n`;
-    prompt += `- Be realistic - make concessions when warranted, hold firm when appropriate\n\n`;
+    prompt += `- Be realistic - make concessions when warranted, hold firm when appropriate\n`;
+    prompt += `- If the candidate becomes aggressive or unprofessional, rescind the offer and wish them all the best in their job search\n`;
+    prompt += `- Do NOT refer to the interview or the candidate's constraints during the negotiation unless the candidate brings those things up first\n`;
+    prompt += `- Do NOT get overly specific or into the weeds asking the candidate about their specific skills, experiences, etc.\n`;
+    prompt += `- If a message is prefixed with [Note: You were interrupted mid-response], the student cut you off while you were talking. React authentically — you might be mildly surprised, briefly acknowledge it, or adjust your tone based on your personality and temperament, then address what the student said\n\n`;
 
     prompt += `CRITICAL - SELF-INTEREST AND NEGOTIATION STRATEGY:\n`;
     prompt += `- START from YOUR ideal position that favors YOUR goals, NOT from what would be fair or good for the student\n`;

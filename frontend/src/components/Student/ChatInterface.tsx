@@ -23,7 +23,16 @@ export const ChatInterface: React.FC = () => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const [isVoiceMode, setIsVoiceMode] = useState(false);
-  const { isSupported, isListening, isSpeaking, isProcessing, interimTranscript, error: voiceError, startListening, stopListening, speak, cancelSpeech } = useVoice({ onTranscriptComplete: sendMessage });
+  const interruptedRef = useRef(false);
+  const sendMessageRef = useRef(sendMessage);
+  sendMessageRef.current = sendMessage;
+  const { isSupported, isListening, isSpeaking, isProcessing, interimTranscript, error: voiceError, startListening, stopListening, speak, cancelSpeech } = useVoice({
+    onTranscriptComplete: (transcript: string) => {
+      const wasInterrupted = interruptedRef.current;
+      interruptedRef.current = false;
+      sendMessageRef.current(transcript, wasInterrupted);
+    },
+  });
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -393,6 +402,45 @@ export const ChatInterface: React.FC = () => {
               </motion.div>
             ))}
           </AnimatePresence>
+
+          {/* Thinking bubble — shown while waiting for bot response */}
+          <AnimatePresence>
+            {isLoading && activeSession.messages.length > 0 && activeSession.messages[activeSession.messages.length - 1].role === 'student' && (
+              <motion.div
+                key="thinking-bubble"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 10 }}
+                transition={{ duration: 0.25 }}
+                className="mb-4 flex justify-start"
+              >
+                <div className="max-w-lg mr-auto">
+                  <div className="p-4 rounded-3xl shadow-soft bg-white text-neutral-900 border border-neutral-200">
+                    <p className="text-xs font-semibold mb-2 opacity-80">Bot</p>
+                    <div className="flex items-center gap-1">
+                      {[0, 1, 2].map(i => (
+                        <motion.div
+                          key={i}
+                          animate={{
+                            scale: [1, 1.4, 1],
+                            opacity: [0.3, 1, 0.3],
+                          }}
+                          transition={{
+                            duration: 1.2,
+                            repeat: Infinity,
+                            delay: i * 0.2,
+                            ease: 'easeInOut',
+                          }}
+                          className="w-2 h-2 rounded-full bg-neutral-400"
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
           <div ref={messagesEndRef} />
         </div>
 
@@ -403,12 +451,15 @@ export const ChatInterface: React.FC = () => {
               <VoiceInput
                 isListening={isListening}
                 isSpeaking={isSpeaking}
+                isWaitingForResponse={isLoading}
                 interimTranscript={interimTranscript}
                 error={voiceError}
                 isDisabled={isLoading || isProcessing}
                 onMicPress={() => {
                   if (isSpeaking) {
                     cancelSpeech();
+                    interruptedRef.current = true;
+                    startListening();
                   } else if (isListening) {
                     stopListening();
                   } else {
