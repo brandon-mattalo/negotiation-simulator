@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useSession } from '../../contexts/SessionContext';
 import { useNavigate } from 'react-router-dom';
-import { Send, StopCircle, Clock, ArrowLeft, Trophy, Target, X } from 'lucide-react';
+import { Send, StopCircle, Clock, ArrowLeft, Trophy, Target, X, Mic } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { GoalsSidebar } from './GoalsSidebar';
+import { VoiceInput } from './VoiceInput';
+import { useVoice } from '../../hooks/useVoice';
 import { apiService } from '../../services/api.service';
 import { NegotiationConfiguration, AchievementLevel, TrophyLevel } from '../../types/negotiation';
 import { Button, Card, Badge, Input } from '../ui';
@@ -20,6 +22,8 @@ export const ChatInterface: React.FC = () => {
   const resizeStartHeight = useRef(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
+  const [isVoiceMode, setIsVoiceMode] = useState(false);
+  const { isSupported, isListening, isSpeaking, isProcessing, interimTranscript, error: voiceError, startListening, stopListening, speak, cancelSpeech } = useVoice({ onTranscriptComplete: sendMessage });
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -44,6 +48,12 @@ export const ChatInterface: React.FC = () => {
       setAchievementLevels(levels);
     }
   }, [activeSession?.outcome]);
+
+  useEffect(() => {
+    if (!isVoiceMode || !activeSession?.messages.length) return;
+    const last = activeSession.messages[activeSession.messages.length - 1];
+    if (last.role === 'bot') speak(last.content);
+  }, [activeSession?.messages, isVoiceMode]);
 
   const loadConfiguration = async () => {
     if (!activeSession) return;
@@ -356,6 +366,21 @@ export const ChatInterface: React.FC = () => {
                         {msg.role === 'student' ? 'You' : 'Bot'}
                       </p>
                       <p className="whitespace-pre-wrap leading-relaxed">{msg.content}</p>
+                      {isVoiceMode && isSpeaking && msg.role === 'bot' && index === activeSession.messages.length - 1 && (
+                        <div className="mt-3 flex items-center gap-2">
+                          <div className="flex gap-1">
+                            {[0, 1, 2].map(i => (
+                              <motion.div
+                                key={i}
+                                animate={{ scale: [1, 1.4, 1], opacity: [0.4, 1, 0.4] }}
+                                transition={{ duration: 0.8, repeat: Infinity, delay: i * 0.2, ease: 'easeInOut' }}
+                                className="w-1.5 h-1.5 rounded-full bg-neutral-400"
+                              />
+                            ))}
+                          </div>
+                          <span className="text-xs text-neutral-500">Speaking</span>
+                        </div>
+                      )}
                     </div>
                   </div>
                 ) : (
@@ -373,42 +398,82 @@ export const ChatInterface: React.FC = () => {
 
         {/* Input Area */}
         <div className="bg-white border-t border-neutral-200 p-4 shadow-soft">
-          <div className="flex gap-3 items-end max-w-5xl mx-auto">
-            <div className="flex-1 relative">
-              {/* Resize Handle */}
-              <div
-                onMouseDown={handleResizeStart}
-                className={`absolute left-0 right-0 top-0 h-2 -mt-2 flex items-center justify-center cursor-ns-resize group z-10 ${isResizing ? 'opacity-100' : 'opacity-0 hover:opacity-100'} transition-opacity`}
-              >
-                <div className="w-12 h-1 bg-neutral-300 rounded-full group-hover:bg-primary-400 transition-colors" />
-              </div>
-              <textarea
-                value={message}
-                onChange={e => setMessage(e.target.value)}
-                onKeyPress={e => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    handleSend();
+          {isVoiceMode ? (
+            <div className="max-w-5xl mx-auto">
+              <VoiceInput
+                isListening={isListening}
+                isSpeaking={isSpeaking}
+                interimTranscript={interimTranscript}
+                error={voiceError}
+                isDisabled={isLoading || isProcessing}
+                onMicPress={() => {
+                  if (isSpeaking) {
+                    cancelSpeech();
+                  } else if (isListening) {
+                    stopListening();
+                  } else {
+                    startListening();
                   }
                 }}
-                placeholder="Type your message... (Shift+Enter for new line)"
-                disabled={isLoading}
-                style={{ height: `${textareaHeight}px` }}
-                className="w-full px-6 py-3 border border-neutral-300 rounded-2xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-base transition-all resize-none"
               />
+              <div className="flex justify-center mt-1">
+                <button
+                  type="button"
+                  onClick={() => { cancelSpeech(); stopListening(); setIsVoiceMode(false); }}
+                  className="text-xs text-neutral-400 hover:text-primary-600 transition-colors"
+                >
+                  Switch to typing
+                </button>
+              </div>
             </div>
-            <Button
-              onClick={handleSend}
-              disabled={isLoading || !message.trim()}
-              isLoading={isLoading}
-              variant="primary"
-              size="lg"
-              className="px-8"
-              leftIcon={<Send size={18} />}
-            >
-              Send
-            </Button>
-          </div>
+          ) : (
+            <div className="flex gap-2 items-center max-w-5xl mx-auto">
+              <div className="flex-1 relative">
+                {/* Resize Handle */}
+                <div
+                  onMouseDown={handleResizeStart}
+                  className={`absolute left-0 right-0 top-0 h-2 -mt-2 flex items-center justify-center cursor-ns-resize group z-10 ${isResizing ? 'opacity-100' : 'opacity-0 hover:opacity-100'} transition-opacity`}
+                >
+                  <div className="w-12 h-1 bg-neutral-300 rounded-full group-hover:bg-primary-400 transition-colors" />
+                </div>
+                <textarea
+                  value={message}
+                  onChange={e => setMessage(e.target.value)}
+                  onKeyPress={e => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      handleSend();
+                    }
+                  }}
+                  placeholder="Type your message... (Shift+Enter for new line)"
+                  disabled={isLoading}
+                  style={{ height: `${textareaHeight}px` }}
+                  className="w-full px-6 py-3 border border-neutral-300 rounded-2xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-base transition-all resize-none"
+                />
+              </div>
+              {isSupported && (
+                <button
+                  type="button"
+                  onClick={() => setIsVoiceMode(true)}
+                  className="h-12 w-12 rounded-xl bg-neutral-100 hover:bg-primary-100 text-neutral-600 hover:text-primary-600 flex items-center justify-center shadow-soft transition-all flex-shrink-0"
+                  title="Switch to voice"
+                >
+                  <Mic size={20} />
+                </button>
+              )}
+              <Button
+                onClick={handleSend}
+                disabled={isLoading || !message.trim()}
+                isLoading={isLoading}
+                variant="primary"
+                size="lg"
+                className="px-8"
+                leftIcon={<Send size={18} />}
+              >
+                Send
+              </Button>
+            </div>
+          )}
         </div>
       </div>
 
