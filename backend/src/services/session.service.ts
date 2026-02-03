@@ -98,7 +98,7 @@ export class SessionService {
 
     if (mappedConfig.botOpeningOffer && mappedConfig.botOpeningOffer.length > 0) {
       initialPrompt += 'Your opening offer includes the following specific terms that you MUST clearly state in natural language:\n';
-      mappedConfig.botOpeningOffer.forEach((term, index) => {
+      mappedConfig.botOpeningOffer.forEach((term: string, index: number) => {
         initialPrompt += `${index + 1}. ${term}\n`;
       });
       initialPrompt += '\nPresent these terms naturally and professionally in your opening statement. Do not list them mechanically - weave them into your message.';

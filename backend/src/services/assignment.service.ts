@@ -349,6 +349,7 @@ export class AssignmentService {
         botGoals: JSON.parse(assignment.configuration.botGoals as string),
         studentConstraints: JSON.parse(assignment.configuration.studentConstraints as string),
         botConstraints: JSON.parse(assignment.configuration.botConstraints as string),
+        botOpeningOffer: typeof assignment.configuration.botOpeningOffer === 'string' ? JSON.parse(assignment.configuration.botOpeningOffer) : (assignment.configuration.botOpeningOffer || []),
         botStrategy: assignment.configuration.botStrategy,
         temperament: assignment.configuration.temperament,
         difficulty: assignment.configuration.difficulty,
