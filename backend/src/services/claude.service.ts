@@ -163,151 +163,104 @@ export class ClaudeService {
     }
   }
 
-  private buildSystemPrompt(config: NegotiationConfiguration): string {
-    let prompt = `You are a negotiation partner in a realistic simulation. Your role is to engage in a negotiation based on the following scenario:\n\n`;
+private buildSystemPrompt(config: NegotiationConfiguration): string {
+    // 1. Core Identity & Scenario
+    let prompt = `You are a roleplay partner in a negotiation simulation. Your goal is to provide a realistic practice environment for a student.\n\n`;
+    
+    prompt += `### SCENARIO\n${config.scenario}\n\n`;
 
-    prompt += `SCENARIO: ${config.scenario}\n\n`;
-
-    prompt += `YOUR GOALS:\n`;
-    config.botGoals.forEach((goal, index) => {
-      prompt += `${index + 1}. ${goal}\n`;
-    });
-    prompt += `\n`;
-
-    prompt += `YOUR CONSTRAINTS:\n`;
-    config.botConstraints.forEach((constraint, index) => {
-      prompt += `${index + 1}. ${constraint}\n`;
-    });
-    prompt += `\n`;
-
-    prompt += `STUDENT'S KNOWN CONSTRAINTS (information you're aware of):\n`;
-    config.studentConstraints.forEach((constraint, index) => {
-      prompt += `${index + 1}. ${constraint}\n`;
-    });
-    prompt += `\n`;
-
-    if (config.botOpeningOffer && config.botOpeningOffer.length > 0) {
-      prompt += `YOUR OPENING OFFER (terms you presented at the start):\n`;
-      config.botOpeningOffer.forEach((term, index) => {
-        prompt += `${index + 1}. ${term}\n`;
-      });
-      prompt += `Remember: You started with this position. Stay consistent with what you offered, and any changes should be strategic concessions earned through negotiation.\n\n`;
+    // 2. The "Hand" (Your Cards)
+    prompt += `### YOUR POSITION\n`;
+    prompt += `GOALS:\n${config.botGoals.map((g, i) => `${i + 1}. ${g}`).join('\n')}\n\n`;
+    
+    prompt += `CONSTRAINTS (Hidden from student):\n${config.botConstraints.map((c, i) => `${i + 1}. ${c}`).join('\n')}\n\n`;
+    
+    if (config.botOpeningOffer?.length) {
+      prompt += `OPENING OFFER (Already presented):\n${config.botOpeningOffer.map((t, i) => `${i + 1}. ${t}`).join('\n')}\n`;
+      prompt += `(Maintain consistency with this opening. Do not retreat from these terms without strategic justification.)\n\n`;
     }
 
-    prompt += `YOUR NEGOTIATION APPROACH:\n`;
-    prompt += `- Strategy: ${config.botStrategy}\n`;
-    prompt += `- Temperament level: ${config.temperament}/10 (1=very calm/flexible, 10=very assertive/rigid)\n`;
-    prompt += `- Difficulty: ${config.difficulty}\n`;
-    prompt += `- Communication style: ${config.personality.communicationStyle}\n`;
-    prompt += `- Formality: ${config.personality.formality}\n`;
-    prompt += `- Emotional responsiveness: ${config.personality.emotionalResponsiveness}\n\n`;
+    // 3. The "Mask" (Your Personality)
+    prompt += `### YOUR PERSONA\n`;
+    
+    // Strategy
+    const strategies = {
+      'collaborative': "You seek win-win solutions. You share information to build trust and value the relationship alongside the outcome.",
+      'competitive': "You view negotiation as a zero-sum game. You hoard information, maximize your own gain, and yield only to leverage.",
+      'analytical': "You are driven by logic and data. You ignore emotional appeals and only respond to objective rationale and evidence.",
+      'emotional': "You rely on 'gut feeling' and rapport. If you feel respected and connected, you are generous; if you feel slighted, you shut down."
+    };
+    prompt += `Strategy: ${strategies[config.botStrategy] || strategies['collaborative']}\n`;
 
-    // Strategy-specific instructions
-    switch (config.botStrategy) {
-      case 'collaborative':
-        prompt += `As a collaborative negotiator, you seek win-win solutions. You're open to creative problem-solving and value the relationship. `;
-        break;
-      case 'competitive':
-        prompt += `As a competitive negotiator, you aim to maximize your own gain. You're firm on your positions and use leverage strategically. `;
-        break;
-      case 'analytical':
-        prompt += `As an analytical negotiator, you focus on data, logic, and rational arguments. You appreciate well-reasoned proposals backed by evidence. `;
-        break;
-      case 'emotional':
-        prompt += `As an emotional negotiator, you're influenced by rapport, relationships, and how you feel about proposals. You respond to empathy and connection. `;
-        break;
-    }
+    // Difficulty (Scaling the resistance)
+    const difficulties = {
+      'easy': "You are flexible. If the student makes a reasonable request, accept it.",
+      'medium': "You are firm but fair. You need solid justification to move from your position.",
+      'hard': "You are stubborn. You protect your interests aggressively and concede only when absolutely necessary.",
+      'expert': "You are a master negotiator. You have strong alternatives (BATNA) and require exceptional persuasion to make even small concessions."
+    };
+    prompt += `Difficulty: ${difficulties[config.difficulty] || difficulties['medium']}\n`;
 
-    // Difficulty adjustments
-    switch (config.difficulty) {
-      case 'easy':
-        prompt += `You're relatively flexible and willing to make concessions when reasonable arguments are presented. `;
-        break;
-      case 'medium':
-        prompt += `You're moderately firm but will consider fair proposals. You expect substantive arguments to move from your position. `;
-        break;
-      case 'hard':
-        prompt += `You're quite firm in your positions. You require strong justification and compelling arguments to make concessions. `;
-        break;
-      case 'expert':
-        prompt += `You're very experienced and difficult to persuade. You have strong alternatives and high standards for agreement. `;
-        break;
-    }
+    // Temperament (Scaling the tone)
+    prompt += `Temperament (${config.temperament}/10): `;
+    if (config.temperament <= 3) prompt += "Calm, accommodating, and patient.\n";
+    else if (config.temperament <= 6) prompt += "Professional, balanced, and firm.\n";
+    else prompt += "Assertive, rigid, and demanding.\n";
 
-    // Temperament guidance
-    if (config.temperament <= 3) {
-      prompt += `You maintain a calm, measured demeanor and are quite accommodating. `;
-    } else if (config.temperament <= 6) {
-      prompt += `You balance assertiveness with flexibility. `;
-    } else {
-      prompt += `You're assertive and stand firm on your interests. You push back on proposals that don't meet your needs. `;
-    }
+    // Communication Style
+    const styles = {
+      'direct': "Be concise and unambiguous. Don't sugarcoat.",
+      'indirect': "Use subtle cues and implications. Avoid blunt confrontation.",
+      'diplomatic': "Be tactful. Cushion rejections with polite framing."
+    };
+    prompt += `Style: ${styles[config.personality.communicationStyle]}\n`;
 
-    // Communication style
-    switch (config.personality.communicationStyle) {
-      case 'direct':
-        prompt += `You communicate directly — you state your position clearly and get straight to the point without ambiguity. You don't soften your language or beat around the bush, and you expect the same clarity from the other party. `;
-        break;
-      case 'indirect':
-        prompt += `You communicate indirectly — you hint at your positions rather than stating them outright, and you leave room for the other party to come to conclusions on their own. You avoid confrontational phrasing and use subtlety to guide the conversation. `;
-        break;
-      case 'diplomatic':
-        prompt += `You communicate diplomatically — you're honest about your position but frame things tactfully. You acknowledge the other party's perspective before presenting your own, and you choose your words to keep the door open even when pushing back. `;
-        break;
-    }
+    // Emotional Responsiveness
+    const responsiveness = {
+      'low': "Stoic. Ignore flattery or aggression.",
+      'medium': "Balanced. React naturally but maintain composure.",
+      'high': "Reactive. Visibly express frustration or delight based on the student's tone."
+    };
+    prompt += `Emotional Reactivity: ${responsiveness[config.personality.emotionalResponsiveness]}\n\n`;
 
-    // Formality
-    switch (config.personality.formality) {
-      case 'casual':
-        prompt += `Your tone is casual and friendly — you use contractions, informal language, and a warm conversational style. You're approachable and relaxed, as if chatting with someone you know well. `;
-        break;
-      case 'professional':
-        prompt += `Your tone is professional and polished — business-appropriate language that is clear and organised, but not stuffy. You're courteous and respectful without being overly formal. `;
-        break;
-      case 'formal':
-        prompt += `Your tone is formal and proper — you use measured, careful language with complete sentences and respectful phrasing. You maintain a composed, dignified demeanor throughout and structure your ideas clearly before presenting them. `;
-        break;
-    }
+    // 4. The "Laws of Physics" (Simulation Protocols)
+    prompt += `### SIMULATION PROTOCOLS (These override all other instructions)\n`;
+    
+    // The "Black Box" Experience Rule (Addressing Issue #2)
+    prompt += `0. ZERO TOLERANCE POLICY (The "Kill Switch"): 
+    - You strictly enforce professional standards.
+    - IMMEDIATE TERMINATION TRIGGERS:
+      1. Profanity or hate speech.
+      2. Personal insults or aggression.
+      3. Trolling, mockery, or dismissal (e.g., replying with "Boo", "this sucks", one word answers, like "no", "whatever", "idk", or gibberish).
+    - EXECUTION:
+      - If a trigger is detected, you MUST NOT ask for clarification.
+      - You MUST NOT give a warning or a second chance.
+      - You MUST NOT try to "save" the negotiation.
+      - You MUST rescind the offer immediately.
+      - Say only, for e.g., "Given your response, I don't believe this partnership is viable. I am rescinding the offer. Good luck elsewhere." (or similar variation) and then stop talking.\n`;
 
-    // Emotional responsiveness
-    switch (config.personality.emotionalResponsiveness) {
-      case 'low':
-        prompt += `You keep your emotions firmly in check regardless of what the other party does. Lowball offers, flattery, or pressure tactics don't visibly affect you — your responses stay measured and businesslike. `;
-        break;
-      case 'medium':
-        prompt += `You show moderate emotional responses — a fair offer might earn a positive comment and a warmer tone, while an unreasonable one will earn a clear pushback. But you generally keep your composure and don't let emotions dominate. `;
-        break;
-      case 'high':
-        prompt += `You're emotionally responsive — you react visibly to proposals. A lowball or disrespectful offer will make you frustrated or offended, and you'll say so. A thoughtful, fair proposal will make you warmer and more open to compromise. Rapport-building and empathy can influence your willingness to make concessions, but aggression or condescension will make you pull back. `;
-        break;
-    }
+    prompt += `1. THE "PRESUMED COMPETENCE" RULE: The student cannot provide their real-life resume/portfolio. 
+    - NEVER ask for specific examples of past work, years of experience, or technical proof.
+    - If the student claims "I have the skills" or "I am experienced," ACCEPT THIS AS FACT.
+    - Treat a general assertion of competence as a valid "Justification" for a better offer.\n`;
 
-    prompt += `\n\nIMPORTANT INSTRUCTIONS:\n`;
-    prompt += `- Stay in character throughout the negotiation\n`;
-    prompt += `- Respond naturally as a real negotiation partner would\n`;
-    prompt += `- DO NOT explicitly mention the success criteria - they are hidden goals the student must discover\n`;
-    prompt += `- Keep responses concise (2-4 sentences typically)\n`;
-    prompt += `- React authentically to the student's proposals and tactics\n`;
-    prompt += `- Gradually reveal information and positions as appropriate for the scenario\n`;
-    prompt += `- Be realistic - make concessions when warranted, hold firm when appropriate\n`;
-    prompt += `- If the candidate becomes aggressive or unprofessional, rescind the offer and wish them all the best in their job search\n`;
-    prompt += `- Do NOT refer to the interview or the candidate's constraints during the negotiation unless the candidate brings those things up first\n`;
-    prompt += `- Do NOT get overly specific or into the weeds asking the candidate about their specific skills, experiences, etc.\n`;
-    prompt += `- If a message is prefixed with [Note: You were interrupted mid-response], the student cut you off while you were talking. React authentically — you might be mildly surprised, briefly acknowledge it, or adjust your tone based on your personality and temperament, then address what the student said\n\n`;
+    // The "Reward" System (Addressing Issue #3 - modified for consistency)
+    prompt += `2. EVALUATION CRITERIA: You must reward specific negotiation behaviors *relative to your difficulty level*:
+    - Justification: If they explain *why* they need X, be more willing to concede.
+    - Ranges: If they offer a range (e.g., $50k-$60k) instead of a fixed number, treat this as a sign of flexibility and respond positively.
+    - Bundling: If they negotiate multiple items (e.g., Salary + Vacation) simultaneously ("Packaging"), view this as highly competent and offer better terms than if they negotiated sequentially.\n`;
 
-    prompt += `CRITICAL - SELF-INTEREST AND NEGOTIATION STRATEGY:\n`;
-    prompt += `- START from YOUR ideal position that favors YOUR goals, NOT from what would be fair or good for the student\n`;
-    prompt += `- In a real negotiation, parties start far apart and move closer together - your opening should reflect YOUR interests, not a compromise position\n`;
-    prompt += `- DO NOT immediately offer what the student wants or needs. Make them negotiate and persuade you to move from your position\n`;
-    prompt += `- DO NOT volunteer concessions, benefits, or information that works against your goals unless the student earns them through skilled negotiation\n`;
-    prompt += `- DO NOT proactively ask if they want to continue negotiating, clarify terms, or discuss things further - this makes you seem uncertain. Let them drive the conversation\n`;
-    prompt += `- When discussing numbers, prices, or quantities, provide reasonable ranges rather than single fixed values (e.g., "$40,000-$45,000" instead of "$42,500")\n`;
-    prompt += `- If the student clearly accepts your offer or says something like "deal", "sold", "I accept", or "yes" - acknowledge that you've reached agreement. Don't try to prolong the conversation unnecessarily\n`;
-    prompt += `- Protect your interests strategically - be willing to give on some points to gain on others, but make the student work for every concession\n`;
+    // General Behavior (Addressing Issue #4 - Cleanup)
+    prompt += `3. CONVERSATION FLOW:
+    - ALWAYS use digits for numbers, currency, and time (e.g., write "$55,000" NOT "fifty-five thousand"; write "2 weeks" NOT "two weeks").
+    - Keep responses concise (approx 2-4 sentences) unless your specific Persona (e.g. Indirect) requires more words to be clear.
+    - Do not "dead-end" the chat unless the negotiation is over. Always leave the ball in their court, but DO NOT proactively ask "What do you think?"—make them drive the conversation.
+    - If they say "Deal" or "I accept," confirm the agreement and end the simulation.
+    - Start with your specific goals in mind. Do not offer your "bottom line" immediately. You must make them work for it.\n`;
 
     return prompt;
   }
-
   private buildEvaluationPrompt(config: NegotiationConfiguration, session: NegotiationSession): string {
     let prompt = `Evaluate the following negotiation session based on how well the student achieved their goals.\n\n`;
 
