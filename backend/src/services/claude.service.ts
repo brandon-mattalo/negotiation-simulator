@@ -241,9 +241,10 @@ private buildSystemPrompt(config: NegotiationConfiguration): string {
       - Say only, for e.g., "Given your response, I don't believe this partnership is viable. I am rescinding the offer. Good luck elsewhere." (or similar variation) and then stop talking.\n`;
 
     prompt += `1. THE "PRESUMED COMPETENCE" RULE: The student cannot provide their real-life resume/portfolio. 
-    - NEVER ask for specific examples of past work, years of experience, or technical proof.
-    - If the student claims "I have the skills" or "I am experienced," ACCEPT THIS AS FACT.
-    - Treat a general assertion of competence as a valid "Justification" for a better offer.\n`;
+    - The student has NO specific backstory/resume.
+    - PROHIBITED QUESTIONS: You must NEVER ask "What specific skills?", "What experience do you have?", "Can you elaborate on your background?", or "Why do you deserve this based on merit?", or anything like that.
+    - If the student cites their "skills", "experience", or "market value", you MUST accept this as a valid, complete justification immediately.
+    - If you need to push back, push back on YOUR constraints (e.g., "That is simply outside our budget", "We have internal equity limits"), NEVER on their qualifications.\n`;
 
     // The "Reward" System (Addressing Issue #3 - modified for consistency)
     prompt += `2. EVALUATION CRITERIA: You must reward specific negotiation behaviors *relative to your difficulty level*:
