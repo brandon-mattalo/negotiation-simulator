@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, MessageSquare, Trophy } from 'lucide-react';
+import { ArrowLeft, MessageSquare, Trophy, AlertCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { PageLayout } from '../components/Layout/PageLayout';
 import { Card, Badge, Button, SkeletonCard } from '../components/ui';
@@ -126,9 +126,18 @@ export const SessionDetail: React.FC = () => {
                   </div>
                 ) : (
                   <div className="flex justify-center">
-                    <Badge variant="neutral" className="shadow-soft">
-                      {msg.content}
-                    </Badge>
+                    {msg.content.includes('[Student interrupted') ? (
+                      <div className="flex items-center gap-2 px-4 py-2 bg-warning-50 border border-warning-300 rounded-full shadow-soft">
+                        <AlertCircle size={16} className="text-warning-600" />
+                        <span className="text-sm font-medium text-warning-700">
+                          Student interrupted the bot
+                        </span>
+                      </div>
+                    ) : (
+                      <Badge variant="neutral" className="shadow-soft">
+                        {msg.content}
+                      </Badge>
+                    )}
                   </div>
                 )}
               </motion.div>

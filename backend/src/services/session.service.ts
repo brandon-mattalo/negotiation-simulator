@@ -101,9 +101,9 @@ export class SessionService {
       mappedConfig.botOpeningOffer.forEach((term: string, index: number) => {
         initialPrompt += `${index + 1}. ${term}\n`;
       });
-      initialPrompt += '\nPresent these terms naturally and professionally in your opening statement. Do not list them mechanically - weave them into your message.';
+      initialPrompt += '\nPresent these terms naturally and professionally in your opening statement. Do not list them mechanically - weave them into your message. Keep it conversational and welcoming. This is your ONLY chance to present the full offer - you will not repeat it in subsequent messages unless specifically asked.';
     } else {
-      initialPrompt += 'You MUST explicitly state the specific terms of your initial offer (numbers, amounts, timeframes, etc.) in this first message. Do not assume they already know your offer - state it clearly with concrete details.';
+      initialPrompt += 'You MUST explicitly state the specific terms of your initial offer (numbers, amounts, timeframes, etc.) in this first message. Do not assume they already know your offer - state it clearly with concrete details. Keep it conversational and welcoming.';
     }
 
     const botMessage: Message = {
@@ -134,7 +134,7 @@ export class SessionService {
     message: string,
     studentId: string,
     interruptedBot?: boolean
-  ): Promise<{ message: Message; botResponse: Message }> {
+  ): Promise<{ message: Message; botResponse: Message; interruptionMessage?: Message }> {
     // Validate message
     const validation = validateMessage(message);
     if (!validation.valid) {
@@ -163,8 +163,9 @@ export class SessionService {
     const messages: Message[] = JSON.parse(session.messages as string);
 
     // Record interruption in transcript if the student cut off the bot
+    let interruptMessage: Message | undefined;
     if (interruptedBot) {
-      const interruptMessage: Message = {
+      interruptMessage = {
         id: uuidv4(),
         role: 'system',
         content: '[Student interrupted the bot\'s response]',
@@ -221,7 +222,11 @@ export class SessionService {
       },
     });
 
-    return { message: userMessage, botResponse: botMessage };
+    return {
+      message: userMessage,
+      botResponse: botMessage,
+      interruptionMessage: interruptMessage
+    };
   }
 
   async endSession(

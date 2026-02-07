@@ -35,7 +35,9 @@ app.use(cors({
 
 // Log CORS configuration for debugging
 console.log('CORS enabled for:', FRONTEND_URL);
-app.use(express.json());
+// Increase JSON payload limit for base64-encoded audio (default is 100kb)
+// Base64 encoding increases size by ~33%, so 10MB audio becomes ~13MB
+app.use(express.json({ limit: '15mb' }));
 app.use(limiter);
 
 // Health check endpoint

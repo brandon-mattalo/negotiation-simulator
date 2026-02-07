@@ -68,9 +68,24 @@ export class VoiceController {
     }
 
     try {
+      // Decode base64 audio
       const buffer = Buffer.from(audio, 'base64');
+      console.log(`[STT] Processing audio: ${buffer.length} bytes, mimeType: ${mimeType}`);
+
+      // Validate audio size (min 100 bytes, max 10MB)
+      if (buffer.length < 100) {
+        console.error('[STT] Audio too small:', buffer.length);
+        res.status(400).json({ error: 'Audio file too small (likely silence or error)' });
+        return;
+      }
+      if (buffer.length > 10 * 1024 * 1024) {
+        console.error('[STT] Audio too large:', buffer.length);
+        res.status(400).json({ error: 'Audio file too large (max 10MB)' });
+        return;
+      }
+
       const type = mimeType || 'audio/webm';
-      const ext = type.includes('webm') ? 'webm' : type.includes('mp4') ? 'mp4' : 'webm';
+      const ext = type.includes('webm') ? 'webm' : type.includes('mp4') ? 'mp4' : type.includes('ogg') ? 'ogg' : 'webm';
 
       const formData = new FormData();
       const blob = new Blob([buffer], { type });
@@ -78,6 +93,7 @@ export class VoiceController {
       formData.append('model_id', 'scribe_v1');
       formData.append('language', 'en');
 
+      console.log('[STT] Sending to ElevenLabs...');
       const response = await fetch('https://api.elevenlabs.io/v1/speech-to-text', {
         method: 'POST',
         headers: { 'xi-api-key': ELEVENLABS_API_KEY },
@@ -86,15 +102,28 @@ export class VoiceController {
 
       if (!response.ok) {
         const errorText = await response.text();
-        res.status(response.status).json({ error: errorText });
+        console.error('[STT] ElevenLabs error:', response.status, errorText);
+
+        // Provide more specific error messages
+        if (response.status === 401) {
+          res.status(500).json({ error: 'Voice service authentication failed' });
+        } else if (response.status === 429) {
+          res.status(429).json({ error: 'Voice service rate limit reached. Please wait a moment and try again.' });
+        } else if (response.status === 400) {
+          res.status(400).json({ error: 'Audio format not supported. Please try again.' });
+        } else {
+          res.status(response.status).json({ error: `Transcription failed: ${errorText}` });
+        }
         return;
       }
 
       const result = await response.json() as { text?: string };
+      console.log('[STT] Success:', result.text?.substring(0, 50) || '(empty)');
       res.json({ text: result.text || '' });
-    } catch (err) {
-      console.error('STT error:', err);
-      res.status(500).json({ error: 'STT request failed' });
+    } catch (err: any) {
+      console.error('[STT] Exception:', err.message || err);
+      console.error('[STT] Stack:', err.stack);
+      res.status(500).json({ error: `Transcription error: ${err.message || 'Unknown error'}` });
     }
   }
 }

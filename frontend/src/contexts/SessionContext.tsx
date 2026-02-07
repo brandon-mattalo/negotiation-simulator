@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
 import { NegotiationSession, SessionOutcome, Message } from '../types/negotiation';
 import { apiService } from '../services/api.service';
 
@@ -22,6 +22,7 @@ export const SessionProvider: React.FC<{ children: ReactNode }> = ({ children })
   const [sessionHistory, setSessionHistory] = useState<NegotiationSession[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const timerIntervalRef = useRef<number | null>(null);
 
   const startSession = async (configId: string, assignmentId?: string) => {
     setIsLoading(true);
@@ -60,17 +61,20 @@ export const SessionProvider: React.FC<{ children: ReactNode }> = ({ children })
     setIsLoading(true);
     setError(null);
     try {
-      const { message: userMessage, botResponse } = await apiService.sendMessage(
+      const { message: userMessage, botResponse, interruptionMessage } = await apiService.sendMessage(
         activeSession.id,
         message,
         interruptedBot
       );
 
-      // Replace optimistic message with server-confirmed one, append bot response
+      // Replace optimistic message with server-confirmed one, append interruption (if any), then bot response
       setActiveSession(prev => {
         if (!prev) return prev;
         const messages = prev.messages.filter(m => m.id !== optimisticId);
-        return { ...prev, messages: [...messages, userMessage, botResponse] };
+        const newMessages = interruptionMessage
+          ? [...messages, interruptionMessage, userMessage, botResponse]
+          : [...messages, userMessage, botResponse];
+        return { ...prev, messages: newMessages };
       });
     } catch (err: any) {
       // Roll back optimistic message on failure
@@ -153,6 +157,67 @@ export const SessionProvider: React.FC<{ children: ReactNode }> = ({ children })
       setIsLoading(false);
     }
   };
+
+  // Client-side timer countdown
+  useEffect(() => {
+    if (activeSession?.isActive && activeSession.timeRemaining !== null && activeSession.timeRemaining !== undefined) {
+      // Clear any existing timer
+      if (timerIntervalRef.current) {
+        clearInterval(timerIntervalRef.current);
+      }
+
+      // Start countdown timer
+      timerIntervalRef.current = setInterval(() => {
+        setActiveSession(prev => {
+          if (!prev || !prev.isActive || prev.timeRemaining === null || prev.timeRemaining === undefined) {
+            return prev;
+          }
+
+          const newTimeRemaining = Math.max(0, prev.timeRemaining - 1);
+
+          // Auto-end session when time runs out
+          if (newTimeRemaining === 0) {
+            endSession().catch(console.error);
+          }
+
+          return {
+            ...prev,
+            timeRemaining: newTimeRemaining,
+          };
+        });
+      }, 1000);
+
+      // Sync with server every 30 seconds to prevent drift
+      const syncInterval = setInterval(async () => {
+        if (activeSession?.id && activeSession.isActive) {
+          try {
+            const session = await apiService.getActiveSession();
+            if (session && session.timeRemaining !== null && session.timeRemaining !== undefined) {
+              setActiveSession(prev => {
+                if (!prev) return prev;
+                return { ...prev, timeRemaining: session.timeRemaining };
+              });
+            }
+          } catch (err) {
+            console.error('Failed to sync timer:', err);
+          }
+        }
+      }, 30000);
+
+      return () => {
+        if (timerIntervalRef.current) {
+          clearInterval(timerIntervalRef.current);
+        }
+        clearInterval(syncInterval);
+      };
+    } else {
+      // No timer needed, clear if exists
+      if (timerIntervalRef.current) {
+        clearInterval(timerIntervalRef.current);
+        timerIntervalRef.current = null;
+      }
+    }
+  }, [activeSession?.id, activeSession?.isActive]);
 
   return (
     <SessionContext.Provider

@@ -12,6 +12,7 @@ export type Temperament = number; // 1-10
 export type DifficultyLevel = 'easy' | 'medium' | 'hard' | 'expert';
 
 export interface BotPersonality {
+  name: string;
   formality: 'casual' | 'professional' | 'formal';
   emotionalResponsiveness: 'low' | 'medium' | 'high';
   communicationStyle: 'direct' | 'indirect' | 'diplomatic';

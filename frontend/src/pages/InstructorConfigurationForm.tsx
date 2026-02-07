@@ -24,6 +24,7 @@ export const InstructorConfigurationForm: React.FC = () => {
   const [temperament, setTemperament] = useState(5);
   const [difficulty, setDifficulty] = useState<DifficultyLevel>('medium');
   const [timeLimit, setTimeLimit] = useState(15);
+  const [botName, setBotName] = useState('');
   const [formality, setFormality] = useState<'casual' | 'professional' | 'formal'>('professional');
   const [emotionalResponsiveness, setEmotionalResponsiveness] = useState<'low' | 'medium' | 'high'>('medium');
   const [communicationStyle, setCommunicationStyle] = useState<'direct' | 'indirect' | 'diplomatic'>('direct');
@@ -50,6 +51,7 @@ export const InstructorConfigurationForm: React.FC = () => {
         setTemperament(config.temperament);
         setDifficulty(config.difficulty);
         setTimeLimit(config.timeLimit);
+        setBotName(config.personality.name || '');
         setFormality(config.personality.formality);
         setEmotionalResponsiveness(config.personality.emotionalResponsiveness);
         setCommunicationStyle(config.personality.communicationStyle);
@@ -104,6 +106,7 @@ export const InstructorConfigurationForm: React.FC = () => {
       difficulty,
       timeLimit,
       personality: {
+        name: botName.trim() || 'AI Partner',
         formality,
         emotionalResponsiveness,
         communicationStyle,
@@ -466,50 +469,68 @@ export const InstructorConfigurationForm: React.FC = () => {
               </div>
 
               {/* Personality */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-neutral-700 mb-1.5">
-                    Formality
+                    Bot Name
                   </label>
-                  <select
-                    value={formality}
-                    onChange={e => setFormality(e.target.value as any)}
+                  <input
+                    type="text"
+                    value={botName}
+                    onChange={e => setBotName(e.target.value)}
+                    placeholder="e.g., Alex, Sarah, Jordan (defaults to 'AI Partner')"
                     className="w-full px-4 py-2.5 border border-neutral-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all"
-                  >
-                    <option value="casual">Casual</option>
-                    <option value="professional">Professional</option>
-                    <option value="formal">Formal</option>
-                  </select>
+                  />
+                  <p className="text-xs text-neutral-500 mt-1">
+                    This name will be used in the chat and identity enforcement
+                  </p>
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-neutral-700 mb-1.5">
-                    Emotional Responsiveness
-                  </label>
-                  <select
-                    value={emotionalResponsiveness}
-                    onChange={e => setEmotionalResponsiveness(e.target.value as any)}
-                    className="w-full px-4 py-2.5 border border-neutral-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all"
-                  >
-                    <option value="low">Low</option>
-                    <option value="medium">Medium</option>
-                    <option value="high">High</option>
-                  </select>
-                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-neutral-700 mb-1.5">
+                      Formality
+                    </label>
+                    <select
+                      value={formality}
+                      onChange={e => setFormality(e.target.value as any)}
+                      className="w-full px-4 py-2.5 border border-neutral-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all"
+                    >
+                      <option value="casual">Casual</option>
+                      <option value="professional">Professional</option>
+                      <option value="formal">Formal</option>
+                    </select>
+                  </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-neutral-700 mb-1.5">
-                    Communication Style
-                  </label>
-                  <select
-                    value={communicationStyle}
-                    onChange={e => setCommunicationStyle(e.target.value as any)}
-                    className="w-full px-4 py-2.5 border border-neutral-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all"
-                  >
-                    <option value="direct">Direct</option>
-                    <option value="indirect">Indirect</option>
-                    <option value="diplomatic">Diplomatic</option>
-                  </select>
+                  <div>
+                    <label className="block text-sm font-medium text-neutral-700 mb-1.5">
+                      Emotional Responsiveness
+                    </label>
+                    <select
+                      value={emotionalResponsiveness}
+                      onChange={e => setEmotionalResponsiveness(e.target.value as any)}
+                      className="w-full px-4 py-2.5 border border-neutral-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all"
+                    >
+                      <option value="low">Low</option>
+                      <option value="medium">Medium</option>
+                      <option value="high">High</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-neutral-700 mb-1.5">
+                      Communication Style
+                    </label>
+                    <select
+                      value={communicationStyle}
+                      onChange={e => setCommunicationStyle(e.target.value as any)}
+                      className="w-full px-4 py-2.5 border border-neutral-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all"
+                    >
+                      <option value="direct">Direct</option>
+                      <option value="indirect">Indirect</option>
+                      <option value="diplomatic">Diplomatic</option>
+                    </select>
+                  </div>
                 </div>
               </div>
             </Card>

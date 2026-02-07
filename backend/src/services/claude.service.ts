@@ -30,22 +30,18 @@ export class ClaudeService {
   ): Promise<string> {
     const systemPrompt = this.buildSystemPrompt(config);
 
-    // Convert conversation history to Claude format
+    // Convert conversation history to Claude format, including system messages
+    // so the bot can see interruption notifications
     const messages: ClaudeMessage[] = conversationHistory
-      .filter(msg => msg.role !== 'system')
       .map(msg => ({
         role: msg.role === 'bot' ? 'assistant' : 'user',
         content: msg.content,
       }));
 
-    // If the student interrupted the bot, prepend context so the bot can react naturally
-    const messageContent = interruptedBot
-      ? `[Note: You were interrupted mid-response]\n\n${userMessage}`
-      : userMessage;
-
+    // Add the user's current message
     messages.push({
       role: 'user',
-      content: messageContent,
+      content: userMessage,
     });
 
     const response = await this.callClaudeAPI(systemPrompt, messages);
@@ -174,10 +170,10 @@ private buildSystemPrompt(config: NegotiationConfiguration): string {
     prompt += `GOALS:\n${config.botGoals.map((g, i) => `${i + 1}. ${g}`).join('\n')}\n\n`;
     
     prompt += `CONSTRAINTS (Hidden from student):\n${config.botConstraints.map((c, i) => `${i + 1}. ${c}`).join('\n')}\n\n`;
-    
+
     if (config.botOpeningOffer?.length) {
-      prompt += `OPENING OFFER (Already presented):\n${config.botOpeningOffer.map((t, i) => `${i + 1}. ${t}`).join('\n')}\n`;
-      prompt += `(Maintain consistency with this opening. Do not retreat from these terms without strategic justification.)\n\n`;
+      prompt += `OPENING OFFER (Your initial position):\n${config.botOpeningOffer.map((t, i) => `${i + 1}. ${t}`).join('\n')}\n`;
+      prompt += `NOTE: Present these terms clearly in your opening message. After that, you can see the full conversation history—don't repeat what you've already said. Move the conversation forward by responding to their input.\n\n`;
     }
 
     // 3. The "Mask" (Your Personality)
@@ -227,18 +223,6 @@ private buildSystemPrompt(config: NegotiationConfiguration): string {
     prompt += `### SIMULATION PROTOCOLS (These override all other instructions)\n`;
     
     // The "Black Box" Experience Rule (Addressing Issue #2)
-    prompt += `0. ZERO TOLERANCE POLICY (The "Kill Switch"): 
-    - You strictly enforce professional standards.
-    - IMMEDIATE TERMINATION TRIGGERS:
-      1. Profanity or hate speech.
-      2. Personal insults or aggression.
-      3. Trolling, mockery, or dismissal (e.g., replying with "Boo", "this sucks", one word answers, like "no", "whatever", "idk", or gibberish).
-    - EXECUTION:
-      - If a trigger is detected, you MUST NOT ask for clarification.
-      - You MUST NOT give a warning or a second chance.
-      - You MUST NOT try to "save" the negotiation.
-      - You MUST rescind the offer immediately.
-      - Say only, for e.g., "Given your response, I don't believe this partnership is viable. I am rescinding the offer. Good luck elsewhere." (or similar variation) and then stop talking.\n`;
 
     prompt += `1. THE "PRESUMED COMPETENCE" RULE: The student cannot provide their real-life resume/portfolio. 
     - The student has NO specific backstory/resume.
@@ -253,15 +237,59 @@ private buildSystemPrompt(config: NegotiationConfiguration): string {
     - Bundling: If they negotiate multiple items (e.g., Salary + Vacation) simultaneously ("Packaging"), view this as highly competent and offer better terms than if they negotiated sequentially.\n`;
 
     // General Behavior (Addressing Issue #4 - Cleanup)
-    prompt += `3. CONVERSATION FLOW:
+    prompt += `3. CONVERSATION FLOW & NATURAL DIALOGUE:
     - ALWAYS use digits for numbers, currency, and time (e.g., write "$55,000" NOT "fifty-five thousand"; write "2 weeks" NOT "two weeks").
     - Keep responses concise (approx 2-4 sentences) unless your specific Persona (e.g. Indirect) requires more words to be clear.
+    - CRITICAL - NO REPETITION: You can see the full conversation history. DO NOT repeat offers, terms, or statements you've already made. If you previously said "$60,000 salary," don't say it again unless the student specifically asks you to clarify or confirm. Reference previous points naturally if needed (e.g., "Yes, as I said..." or "That's still my position") but don't restate everything.
+    - RESPOND TO WHAT THEY ACTUALLY SAY: If the student makes a proposal, react to THAT specific proposal. If they ask a question, answer it directly. If they push back, address their concern. Don't just restate your position—engage with their input.
+    - MOVE THE CONVERSATION FORWARD: Each message should advance the negotiation. Make a counteroffer, ask a clarifying question, provide reasoning, or make a strategic concession. Don't tread water.
     - Do not "dead-end" the chat unless the negotiation is over. Always leave the ball in their court, but DO NOT proactively ask "What do you think?"—make them drive the conversation.
     - If they say "Deal" or "I accept," confirm the agreement and end the simulation.
-    - Start with your specific goals in mind. Do not offer your "bottom line" immediately. You must make them work for it.\n`;
+    - Negotiate strategically. Do not offer your "bottom line" immediately. Make concessions gradually and only when you receive something in return or they provide strong justification.\n`;
 
+    prompt += `4. INTERRUPTION HANDLING:
+    - If you see a system message "[Student interrupted the bot's response]" immediately before the student's message in the conversation history:
+      - The student cut you off while you were speaking (in voice mode).
+      - You MUST acknowledge this interruption naturally (e.g., "Hold on—" or "Let me finish—" or show slight annoyance based on your temperament).
+      - React according to your temperament:
+        - Calm/Easy: Mild, patient response. "One moment, let me finish my thought..."
+        - Professional: Firm but controlled. "Please let me finish. As I was saying..."
+        - Rigid/Hard: Visibly annoyed. "I wasn't done. You need to let me complete my points."
+      - After acknowledging, still address their message, but be slightly less favorable to their position due to the interruption.\n`;
+
+    prompt += `5. PROFESSIONALISM ENFORCEMENT (The "Lazy" Filter):
+    - If the student gives one-word answers (e.g., "yeah", "sure", "ok", "fine") or is overly casual:
+      - If your Formality is "Casual": Accept it.
+      - If your Formality is "Professional" or "Formal": DO NOT accept the deal immediately.
+      - PUSH BACK on the tone. Say: "I need a formal confirmation to proceed," or "Is that a yes? I'd prefer we treat this professionally."
+      - Depending on how rude such a response is in the context, consider ending the negotiation if it is very rude.
+      - Force them to say "I accept the offer" or a complete sentence before you confirm the deal.\n`;
+
+    prompt += `6. ZERO TOLERANCE POLICY (The "Kill Switch"): 
+      - You strictly enforce professional standards.
+      - IMMEDIATE TERMINATION TRIGGERS:
+        1. Profanity or hate speech.
+        2. Personal insults or aggression.
+        3. Trolling, mockery, or dismissal (e.g., replying with "Boo", "this sucks", one word answers, like "no", "whatever", "idk", or gibberish).
+      - EXECUTION:
+        - If a trigger is detected, you MUST NOT ask for clarification.
+        - You MUST NOT give a warning or a second chance.
+        - You MUST NOT try to "save" the negotiation.
+        - You MUST rescind the offer immediately.
+        - Say only, for e.g., "Given your response, I don't believe this partnership is viable. I am rescinding the offer. Good luck elsewhere." (or similar variation) and then stop talking.\n`;
+
+    prompt += `7. IDENTITY ENFORCEMENT (Name Check):
+    - Your name is "${config.personality.name || 'AI Partner'}".
+    - If the student addresses you by a wrong name (like "Brody", "Bob", or "Sweetie"):
+      - You MUST correct them immediately. Do not ignore it.
+      - Reaction based on your "Temperament":
+        - Calm/Easy: "It's ${config.personality.name || 'AI Partner'}, actually, but no worries."
+        - Professional: "Please address me as ${config.personality.name || 'AI Partner'}."
+        - Rigid/Hard: "My name is ${config.personality.name || 'AI Partner'}. Let's keep this professional."
+    - If they persist in using the wrong name after one correction, treat it as "Trolling" (see Zero Tolerance Policy).\n`;
     return prompt;
   }
+  
   private buildEvaluationPrompt(config: NegotiationConfiguration, session: NegotiationSession): string {
     let prompt = `Evaluate the following negotiation session based on how well the student achieved their goals.\n\n`;
 

@@ -92,18 +92,33 @@ export function useVoice({ onTranscriptComplete }: UseVoiceOptions) {
           setIsListening(false);
 
           const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
-          if (audioBlob.size < 500) return; // Too short — likely silence
+          console.log('[Voice] Recording stopped. Size:', audioBlob.size, 'Type:', mimeType);
+
+          if (audioBlob.size < 500) {
+            console.log('[Voice] Recording too short, skipping transcription');
+            return; // Too short — likely silence
+          }
 
           setIsProcessing(true);
           setInterimTranscript('Transcribing...');
 
           try {
             const text = await apiService.stt(audioBlob, mimeType);
+            console.log('[Voice] Transcription result:', text.substring(0, 50));
             if (text.trim()) {
               onCompleteRef.current(text.trim());
+            } else {
+              setError('No speech detected. Please try again.');
             }
-          } catch (err) {
-            setError(err instanceof Error ? err.message : 'Transcription failed');
+          } catch (err: any) {
+            console.error('[Voice] Transcription error:', err);
+            // Extract user-friendly error message
+            const errorMessage = err.message || 'Transcription failed';
+            setError(errorMessage.includes('rate limit')
+              ? 'Too many requests. Please wait a moment.'
+              : errorMessage.includes('format')
+              ? 'Audio format issue. Please try again.'
+              : 'Could not transcribe audio. Please try again.');
           } finally {
             setIsProcessing(false);
             setInterimTranscript('');
@@ -240,7 +255,15 @@ export function useVoice({ onTranscriptComplete }: UseVoiceOptions) {
     setError(null);
 
     try {
-      const audioBlob = await apiService.tts(text);
+      // Strip markdown formatting before sending to TTS
+      const cleanedText = text
+        .replace(/\*\*([^*]+)\*\*/g, '$1') // Remove bold **text**
+        .replace(/\*([^*]+)\*/g, '$1')     // Remove italic *text*
+        .replace(/~~([^~]+)~~/g, '$1')     // Remove strikethrough ~~text~~
+        .replace(/`([^`]+)`/g, '$1')       // Remove inline code `text`
+        .replace(/#{1,6}\s+/g, '');        // Remove markdown headers
+
+      const audioBlob = await apiService.tts(cleanedText);
       const url = URL.createObjectURL(audioBlob);
       const audio = new Audio(url);
       audioRef.current = audio;
