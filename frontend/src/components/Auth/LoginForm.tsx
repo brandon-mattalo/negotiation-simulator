@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { User, Lock } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useAuth } from '../../contexts/AuthContext';
@@ -96,15 +96,6 @@ export const LoginForm: React.FC = () => {
             </Button>
           </form>
 
-          <p className="mt-6 text-center text-sm text-neutral-600">
-            Don't have an account?{' '}
-            <Link
-              to="/register"
-              className="text-primary-600 hover:text-primary-700 font-medium transition-colors"
-            >
-              Create account
-            </Link>
-          </p>
         </Card>
       </motion.div>
     </div>

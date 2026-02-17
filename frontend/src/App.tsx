@@ -7,7 +7,6 @@ import { AssignmentProvider } from './contexts/AssignmentContext';
 import { ToastProvider } from './components/ui';
 import { ProtectedRoute } from './components/Layout/ProtectedRoute';
 import { LoginForm } from './components/Auth/LoginForm';
-import { RegisterForm } from './components/Auth/RegisterForm';
 import { InstructorDashboard } from './pages/InstructorDashboard';
 import { InstructorConfigurations } from './pages/InstructorConfigurations';
 import { InstructorConfigurationForm } from './pages/InstructorConfigurationForm';
@@ -32,7 +31,6 @@ const App: React.FC = () => {
               <Router>
               <Routes>
                 <Route path="/login" element={<LoginForm />} />
-                <Route path="/register" element={<RegisterForm />} />
 
                 <Route
                   path="/instructor"
