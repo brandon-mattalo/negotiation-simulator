@@ -15,4 +15,10 @@ router.get('/sessions/:id', instructorController.getSessionById.bind(instructorC
 
 router.get('/students', instructorController.getStudents.bind(instructorController));
 
+router.get('/unenrolled-students', instructorController.getUnenrolledStudents.bind(instructorController));
+
+router.post('/enroll', instructorController.enrollStudent.bind(instructorController));
+
+router.delete('/enroll/:studentId', instructorController.unenrollStudent.bind(instructorController));
+
 export default router;

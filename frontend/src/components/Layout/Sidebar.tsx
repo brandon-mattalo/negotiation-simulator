@@ -8,6 +8,7 @@ import {
   ClipboardList,
   Eye,
   BookOpen,
+  Users,
   LogOut,
 } from 'lucide-react';
 import clsx from 'clsx';
@@ -36,6 +37,7 @@ export const Sidebar: React.FC = () => {
     { icon: <BookOpen size={24} />, label: 'Templates', path: '/instructor/templates' },
     { icon: <Settings size={24} />, label: 'Configurations', path: '/instructor/configurations' },
     { icon: <ClipboardList size={24} />, label: 'Assignments', path: '/instructor/assignments' },
+    { icon: <Users size={24} />, label: 'Students', path: '/instructor/students' },
     { icon: <Eye size={24} />, label: 'Review', path: '/instructor/review' },
   ];
 

@@ -272,6 +272,23 @@ class ApiService {
     const data = await this.request<{ students: User[] }>('/instructor/students');
     return data.students;
   }
+
+  async getUnenrolledStudents(): Promise<User[]> {
+    const data = await this.request<{ students: User[] }>('/instructor/unenrolled-students');
+    return data.students;
+  }
+
+  async enrollStudent(username: string): Promise<User> {
+    const data = await this.request<{ student: User }>('/instructor/enroll', {
+      method: 'POST',
+      body: JSON.stringify({ username }),
+    });
+    return data.student;
+  }
+
+  async unenrollStudent(studentId: string): Promise<void> {
+    await this.request(`/instructor/enroll/${studentId}`, { method: 'DELETE' });
+  }
   // Voice
   async tts(text: string): Promise<Blob> {
     const response = await fetch(`${this.baseUrl}/voice/tts`, {

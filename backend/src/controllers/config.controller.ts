@@ -11,8 +11,21 @@ export class ConfigController {
       const userId = req.user!.userId;
       const role = req.user!.role;
 
-      // Instructors see their own configs, students see active configs
-      const where = role === 'instructor' ? { instructorId: userId } : { isActive: true };
+      // Instructors see their own configs, students see their professor's active configs
+      let where: any;
+      if (role === 'instructor') {
+        where = { instructorId: userId };
+      } else {
+        // Look up the student's enrollment to find their professor
+        const enrollment = await prisma.enrollment.findUnique({
+          where: { studentId: userId },
+        });
+        if (!enrollment) {
+          res.json({ configurations: [] });
+          return;
+        }
+        where = { isActive: true, instructorId: enrollment.instructorId };
+      }
 
       const configs = await prisma.configuration.findMany({
         where,

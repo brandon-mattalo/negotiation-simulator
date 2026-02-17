@@ -43,6 +43,8 @@ model User {
   sessions       Session[]       @relation("StudentSessions")
   assignments    Assignment[]    @relation("StudentAssignments")
   instructorAssignments Assignment[] @relation("InstructorAssignments")
+  enrolledStudents  Enrollment[] @relation("InstructorEnrollments")
+  enrollment        Enrollment?  @relation("StudentEnrollment")
 
   @@map("users")
 }
@@ -127,4 +129,16 @@ model Assignment {
   sessions        Session[]
 
   @@map("assignments")
+}
+
+model Enrollment {
+  id            String   @id @default(uuid())
+  instructorId  String   @map("instructor_id")
+  studentId     String   @unique @map("student_id")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  instructor    User     @relation("InstructorEnrollments", fields: [instructorId], references: [id], onDelete: Cascade)
+  student       User     @relation("StudentEnrollment", fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@map("enrollments")
 }
