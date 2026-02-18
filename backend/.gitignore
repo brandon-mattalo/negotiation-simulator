@@ -3,4 +3,5 @@ dist/
 .env
 *.log
 .DS_Store
+prisma/accounts.csv
 # Types are now committed in src/types/
