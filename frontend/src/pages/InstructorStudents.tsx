@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { UserPlus, Users, UserMinus, Search } from 'lucide-react';
+import { UserPlus, Users, UserMinus, Search, Eye, EyeOff, Download, Plus, RefreshCw } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { apiService } from '../services/api.service';
 import { PageLayout } from '../components/Layout/PageLayout';
@@ -22,6 +22,12 @@ export const InstructorStudents: React.FC = () => {
   const [enrolling, setEnrolling] = useState(false);
   const [unenrolling, setUnenrolling] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [newUsername, setNewUsername] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [creating, setCreating] = useState(false);
+  const [visiblePasswords, setVisiblePasswords] = useState<Record<string, string>>({});
+  const [loadingPasswords, setLoadingPasswords] = useState<Record<string, boolean>>({});
   const { showToast } = useToast();
 
   const fetchStudents = async () => {
@@ -96,19 +102,106 @@ export const InstructorStudents: React.FC = () => {
     );
   }, [unenrolledStudents, searchQuery]);
 
+  const generateUsername = () => {
+    const adjectives = ['quick', 'bright', 'calm', 'bold', 'keen', 'swift', 'wise', 'fair', 'warm', 'cool'];
+    const nouns = ['fox', 'owl', 'hawk', 'wolf', 'bear', 'deer', 'lynx', 'dove', 'lion', 'elk'];
+    const adj = adjectives[Math.floor(Math.random() * adjectives.length)];
+    const noun = nouns[Math.floor(Math.random() * nouns.length)];
+    const num = Math.floor(Math.random() * 900) + 100;
+    setNewUsername(`${adj}-${noun}-${num}`);
+  };
+
+  const generatePassword = () => {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+    let pw = '';
+    for (let i = 0; i < 10; i++) pw += chars[Math.floor(Math.random() * chars.length)];
+    setNewPassword(pw);
+  };
+
+  const handleCreateStudent = async () => {
+    if (!newUsername.trim() || !newPassword.trim()) {
+      showToast('error', 'Username and password are required');
+      return;
+    }
+    setCreating(true);
+    try {
+      const student = await apiService.createStudent(newUsername.trim(), newPassword.trim());
+      setStudents(prev => [...prev, student as EnrolledStudent].sort((a, b) => a.username.localeCompare(b.username)));
+      showToast('success', `Student "${newUsername}" created and enrolled`);
+      setCreateModalOpen(false);
+      setNewUsername('');
+      setNewPassword('');
+    } catch (error: any) {
+      showToast('error', error.message || 'Failed to create student');
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const togglePassword = async (studentId: string) => {
+    if (visiblePasswords[studentId]) {
+      setVisiblePasswords(prev => { const next = { ...prev }; delete next[studentId]; return next; });
+      return;
+    }
+    setLoadingPasswords(prev => ({ ...prev, [studentId]: true }));
+    try {
+      const password = await apiService.getStudentPassword(studentId);
+      setVisiblePasswords(prev => ({ ...prev, [studentId]: password }));
+    } catch (error: any) {
+      showToast('error', error.message || 'Failed to retrieve password');
+    } finally {
+      setLoadingPasswords(prev => ({ ...prev, [studentId]: false }));
+    }
+  };
+
+  const handleExport = async () => {
+    try {
+      const blob = await apiService.exportStudentCredentials();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'student_credentials.csv';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+      showToast('success', 'Credentials exported');
+    } catch (error: any) {
+      showToast('error', error.message || 'Failed to export credentials');
+    }
+  };
+
   return (
     <PageLayout
       title="Students"
       subtitle={`${students.length} enrolled student${students.length !== 1 ? 's' : ''}`}
       actions={
-        <Button
-          variant="primary"
-          size="lg"
-          onClick={openEnrollModal}
-          leftIcon={<UserPlus size={20} />}
-        >
-          Enroll Student
-        </Button>
+        <div className="flex gap-3">
+          <Button
+            variant="secondary"
+            size="lg"
+            onClick={handleExport}
+            leftIcon={<Download size={20} />}
+          >
+            Export Credentials
+          </Button>
+          <Button
+            variant="secondary"
+            size="lg"
+            onClick={() => { setCreateModalOpen(true); setNewUsername(''); setNewPassword(''); }}
+            leftIcon={<Plus size={20} />}
+          >
+            Create Student
+          </Button>
+          <Button
+            variant="primary"
+            size="lg"
+            onClick={openEnrollModal}
+            leftIcon={<UserPlus size={20} />}
+          >
+            Enroll Student
+          </Button>
+        </div>
       }
     >
       {loading ? (
@@ -156,14 +249,35 @@ export const InstructorStudents: React.FC = () => {
                       </p>
                     )}
                   </div>
-                  <Button
-                    variant="danger"
-                    size="sm"
-                    onClick={() => confirmUnenroll(student)}
-                    leftIcon={<UserMinus size={16} />}
-                  >
-                    Unenroll
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    {visiblePasswords[student.id] && (
+                      <span className="text-sm font-mono bg-neutral-100 px-2 py-1 rounded">
+                        {visiblePasswords[student.id]}
+                      </span>
+                    )}
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => togglePassword(student.id)}
+                      disabled={loadingPasswords[student.id]}
+                    >
+                      {loadingPasswords[student.id] ? (
+                        <RefreshCw size={16} className="animate-spin" />
+                      ) : visiblePasswords[student.id] ? (
+                        <EyeOff size={16} />
+                      ) : (
+                        <Eye size={16} />
+                      )}
+                    </Button>
+                    <Button
+                      variant="danger"
+                      size="sm"
+                      onClick={() => confirmUnenroll(student)}
+                      leftIcon={<UserMinus size={16} />}
+                    >
+                      Unenroll
+                    </Button>
+                  </div>
                 </div>
               </Card>
             </motion.div>
@@ -218,6 +332,51 @@ export const InstructorStudents: React.FC = () => {
               ))}
             </div>
           )}
+        </div>
+      </Modal>
+
+      {/* Create Student Modal */}
+      <Modal
+        isOpen={createModalOpen}
+        onClose={() => setCreateModalOpen(false)}
+        title="Create Student Account"
+        size="md"
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-neutral-700 mb-1">Username</label>
+            <div className="flex gap-2">
+              <Input
+                placeholder="Enter username"
+                value={newUsername}
+                onChange={(e) => setNewUsername(e.target.value)}
+              />
+              <Button variant="secondary" size="sm" onClick={generateUsername}>
+                Random
+              </Button>
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-neutral-700 mb-1">Password</label>
+            <div className="flex gap-2">
+              <Input
+                placeholder="Enter password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+              />
+              <Button variant="secondary" size="sm" onClick={generatePassword}>
+                Random
+              </Button>
+            </div>
+          </div>
+          <div className="flex gap-3 justify-end pt-2">
+            <Button variant="secondary" onClick={() => setCreateModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button variant="primary" onClick={handleCreateStudent} disabled={creating}>
+              {creating ? 'Creating...' : 'Create'}
+            </Button>
+          </div>
         </div>
       </Modal>
 

@@ -1,6 +1,8 @@
 import { Response } from 'express';
 import { PrismaClient } from '@prisma/client';
+import bcrypt from 'bcrypt';
 import { AuthRequest } from '../middleware/auth.middleware';
+import { encrypt, decrypt } from '../utils/encryption.util';
 
 const prisma = new PrismaClient();
 
@@ -262,6 +264,135 @@ export class InstructorController {
       });
 
       res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  }
+
+  async createStudent(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const instructorId = req.user!.userId;
+      const { username, password } = req.body;
+
+      if (!username || !password) {
+        res.status(400).json({ error: 'Username and password are required' });
+        return;
+      }
+
+      // Check if username already exists
+      const existing = await prisma.user.findUnique({ where: { username } });
+      if (existing) {
+        res.status(400).json({ error: 'Username already exists' });
+        return;
+      }
+
+      const passwordHash = await bcrypt.hash(password, 10);
+
+      // Encrypt password for recovery
+      let encryptedPassword: string | undefined;
+      if (process.env.ENCRYPTION_KEY) {
+        encryptedPassword = encrypt(password);
+      }
+
+      // Create student and enroll in a transaction
+      const result = await prisma.$transaction(async (tx) => {
+        const student = await tx.user.create({
+          data: {
+            username,
+            passwordHash,
+            encryptedPassword,
+            role: 'student',
+          },
+        });
+
+        const enrollment = await tx.enrollment.create({
+          data: {
+            instructorId,
+            studentId: student.id,
+          },
+        });
+
+        return { student, enrollment };
+      });
+
+      res.json({
+        student: {
+          id: result.student.id,
+          username: result.student.username,
+          createdAt: result.student.createdAt,
+          enrolledAt: result.enrollment.createdAt,
+        },
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  }
+
+  async getStudentPassword(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const instructorId = req.user!.userId;
+      const { studentId } = req.params;
+
+      // Verify student is enrolled under this instructor
+      const enrollment = await prisma.enrollment.findUnique({
+        where: { studentId },
+      });
+
+      if (!enrollment || enrollment.instructorId !== instructorId) {
+        res.status(403).json({ error: 'Student is not enrolled under you' });
+        return;
+      }
+
+      const student = await prisma.user.findUnique({
+        where: { id: studentId },
+        select: { encryptedPassword: true, username: true },
+      });
+
+      if (!student || !student.encryptedPassword) {
+        res.status(400).json({ error: 'No recoverable password for this student' });
+        return;
+      }
+
+      const password = decrypt(student.encryptedPassword);
+      res.json({ password });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  }
+
+  async exportStudentCredentials(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const instructorId = req.user!.userId;
+
+      const enrollments = await prisma.enrollment.findMany({
+        where: { instructorId },
+        include: {
+          student: {
+            select: { username: true, encryptedPassword: true },
+          },
+        },
+        orderBy: { student: { username: 'asc' } },
+      });
+
+      const rows = enrollments.map((e) => {
+        let password = '';
+        if (e.student.encryptedPassword) {
+          try {
+            password = decrypt(e.student.encryptedPassword);
+          } catch {
+            password = '(unable to decrypt)';
+          }
+        } else {
+          password = '(no recoverable password)';
+        }
+        return { username: e.student.username, password };
+      });
+
+      const csv = 'username,password\n' + rows.map((r) => `${r.username},${r.password}`).join('\n');
+
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', 'attachment; filename="student_credentials.csv"');
+      res.send(csv);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }

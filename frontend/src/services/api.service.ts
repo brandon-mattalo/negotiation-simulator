@@ -289,6 +289,34 @@ class ApiService {
   async unenrollStudent(studentId: string): Promise<void> {
     await this.request(`/instructor/enroll/${studentId}`, { method: 'DELETE' });
   }
+
+  async createStudent(username: string, password: string): Promise<User> {
+    const data = await this.request<{ student: User }>('/instructor/create-student', {
+      method: 'POST',
+      body: JSON.stringify({ username, password }),
+    });
+    return data.student;
+  }
+
+  async getStudentPassword(studentId: string): Promise<string> {
+    const data = await this.request<{ password: string }>(`/instructor/students/${studentId}/password`);
+    return data.password;
+  }
+
+  async exportStudentCredentials(): Promise<Blob> {
+    const response = await fetch(`${this.baseUrl}/instructor/students/export`, {
+      headers: {
+        ...(this.token ? { 'Authorization': `Bearer ${this.token}` } : {}),
+      },
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: 'Export failed' }));
+      throw new Error(error.error || `HTTP ${response.status}`);
+    }
+
+    return response.blob();
+  }
   // Voice
   async tts(text: string): Promise<Blob> {
     const response = await fetch(`${this.baseUrl}/voice/tts`, {

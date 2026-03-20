@@ -3,6 +3,7 @@ import { PrismaClient } from '@prisma/client';
 import { User, UserRole } from '../types/negotiation';
 import { generateToken } from '../utils/jwt.util';
 import { validateUsername, validatePassword } from '../utils/validation.util';
+import { encrypt } from '../utils/encryption.util';
 
 const prisma = new PrismaClient();
 const SALT_ROUNDS = 10;
@@ -32,11 +33,18 @@ export class AuthService {
     // Hash password
     const passwordHash = await this.hashPassword(password);
 
+    // Encrypt password for recovery if encryption key is available
+    let encryptedPassword: string | undefined;
+    if (process.env.ENCRYPTION_KEY) {
+      encryptedPassword = encrypt(password);
+    }
+
     // Create user
     const user = await prisma.user.create({
       data: {
         username,
         passwordHash,
+        encryptedPassword,
         role,
       },
     });

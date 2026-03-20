@@ -21,4 +21,10 @@ router.post('/enroll', instructorController.enrollStudent.bind(instructorControl
 
 router.delete('/enroll/:studentId', instructorController.unenrollStudent.bind(instructorController));
 
+router.post('/create-student', instructorController.createStudent.bind(instructorController));
+
+router.get('/students/:studentId/password', instructorController.getStudentPassword.bind(instructorController));
+
+router.get('/students/export', instructorController.exportStudentCredentials.bind(instructorController));
+
 export default router;
