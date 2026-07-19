@@ -48,8 +48,9 @@ export const Sidebar: React.FC = () => {
   };
 
   const handleLogout = () => {
+    const origin = localStorage.getItem('loginOrigin') || '/login';
     logout();
-    navigate('/login');
+    navigate(origin);
   };
 
   return (

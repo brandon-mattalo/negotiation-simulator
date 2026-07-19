@@ -20,7 +20,8 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requir
   }
 
   if (!user) {
-    return <Navigate to="/login" replace />;
+    const origin = localStorage.getItem('loginOrigin') || '/login';
+    return <Navigate to={origin} replace />;
   }
 
   if (requiredRole && user.role !== requiredRole) {

@@ -44,6 +44,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const login = async (username: string, password: string): Promise<User> => {
     const { token: newToken, user: userData } = await apiService.login(username, password);
+    localStorage.setItem('loginOrigin', '/login');
     setToken(newToken);
     setUser(userData);
     return userData;
@@ -51,6 +52,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const reviewerLogin = async (role: 'professor' | 'student'): Promise<User> => {
     const { token: newToken, user: userData } = await apiService.reviewerLogin(role);
+    localStorage.setItem('loginOrigin', '/reviewer');
     setToken(newToken);
     setUser(userData);
     return userData;
