@@ -18,6 +18,16 @@ export interface BotPersonality {
   communicationStyle: 'direct' | 'indirect' | 'diplomatic';
 }
 
+// A rubric is a table with a fixed set of columns: the component name plus
+// three performance levels (Level 1 = low, Level 3 = high). Each row describes
+// one component and what each level looks like for it.
+export interface RubricRow {
+  component: string;
+  levels: string[]; // exactly 3 entries: Level 1, Level 2, Level 3
+}
+
+export type Rubric = RubricRow[];
+
 export interface NegotiationConfiguration {
   id: string;
   instructorId: string;
@@ -28,6 +38,7 @@ export interface NegotiationConfiguration {
   studentConstraints: string[];
   botConstraints: string[];
   botOpeningOffer: string[];
+  rubric: Rubric;
   botStrategy: BotStrategy;
   temperament: Temperament;
   difficulty: DifficultyLevel;
@@ -68,13 +79,28 @@ export interface NegotiationSession {
 
 export type OutcomeType = 'success' | 'partial' | 'failure' | 'timeout';
 
+// Result of evaluating one rubric component against the transcript. Carries a
+// snapshot of the rubric text so historical feedback stays stable even if the
+// instructor later edits the configuration's rubric.
+export interface RubricEvaluation {
+  component: string;
+  levels: string[]; // snapshot of the 3 level descriptions
+  levelAchieved: number; // 1-3
+  explanation: string;
+}
+
 export interface SessionOutcome {
   type: OutcomeType;
   feedback: string;
-  criteriaEvaluation: CriteriaEvaluation[];
   botAnalysis: string;
+  rubricEvaluation: RubricEvaluation[];
+  overallLevel: number; // 1-3, the mode of the component levels
+  overallAssessment: string;
+  // Legacy trophy-based fields, retained (optional) for sessions evaluated
+  // before the rubric feature.
+  criteriaEvaluation?: CriteriaEvaluation[];
   overallTrophy?: TrophyLevel;
-  trophiesEarned: {
+  trophiesEarned?: {
     bronze: number;
     silver: number;
     gold: number;

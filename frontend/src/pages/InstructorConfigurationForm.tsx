@@ -1,11 +1,26 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Plus, X, Save, ArrowLeft, Trophy, User, Bot } from 'lucide-react';
+import { Plus, X, Save, ArrowLeft, ClipboardList, User, Bot } from 'lucide-react';
 import { useConfig } from '../contexts/ConfigContext';
 import { PageLayout } from '../components/Layout/PageLayout';
 import { Card, Input, Textarea, Button } from '../components/ui';
 import { useToast } from '../components/ui';
-import { BotStrategy, DifficultyLevel } from '../types/negotiation';
+import { BotStrategy, DifficultyLevel, RubricRow } from '../types/negotiation';
+
+// The first rubric row is pre-filled with this standard component. It is
+// editable — the instructor can change, extend, or remove it.
+const DEFAULT_RUBRIC: RubricRow[] = [
+  {
+    component: 'Achieved Goals of Negotiation',
+    levels: [
+      'Student achieved no goals from the exercise.',
+      'Student achieved a minority of goals from the exercise.',
+      'Student achieved most or all goals from the exercise.',
+    ],
+  },
+];
+
+const emptyRubricRow = (): RubricRow => ({ component: '', levels: ['', '', ''] });
 
 export const InstructorConfigurationForm: React.FC = () => {
   const { id } = useParams();
@@ -20,6 +35,9 @@ export const InstructorConfigurationForm: React.FC = () => {
   const [studentConstraints, setStudentConstraints] = useState<string[]>(['']);
   const [botConstraints, setBotConstraints] = useState<string[]>(['']);
   const [botOpeningOffer, setBotOpeningOffer] = useState<string[]>(['']);
+  const [rubric, setRubric] = useState<RubricRow[]>(() =>
+    DEFAULT_RUBRIC.map(row => ({ component: row.component, levels: [...row.levels] }))
+  );
   const [botStrategy, setBotStrategy] = useState<BotStrategy>('collaborative');
   const [temperament, setTemperament] = useState(5);
   const [difficulty, setDifficulty] = useState<DifficultyLevel>('medium');
@@ -47,6 +65,14 @@ export const InstructorConfigurationForm: React.FC = () => {
         setStudentConstraints(config.studentConstraints.length > 0 ? config.studentConstraints : ['']);
         setBotConstraints(config.botConstraints.length > 0 ? config.botConstraints : ['']);
         setBotOpeningOffer(config.botOpeningOffer.length > 0 ? config.botOpeningOffer : ['']);
+        setRubric(
+          config.rubric && config.rubric.length > 0
+            ? config.rubric.map(row => ({
+                component: row.component,
+                levels: [row.levels[0] || '', row.levels[1] || '', row.levels[2] || ''],
+              }))
+            : DEFAULT_RUBRIC.map(row => ({ component: row.component, levels: [...row.levels] }))
+        );
         setBotStrategy(config.botStrategy);
         setTemperament(config.temperament);
         setDifficulty(config.difficulty);
@@ -71,6 +97,29 @@ export const InstructorConfigurationForm: React.FC = () => {
     const newItems = [...items];
     newItems[index] = value;
     setter(newItems);
+  };
+
+  const handleAddRubricRow = () => {
+    setRubric(prev => [...prev, emptyRubricRow()]);
+  };
+
+  const handleRemoveRubricRow = (index: number) => {
+    setRubric(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleRubricComponentChange = (index: number, value: string) => {
+    setRubric(prev => prev.map((row, i) => (i === index ? { ...row, component: value } : row)));
+  };
+
+  const handleRubricLevelChange = (rowIndex: number, levelIndex: number, value: string) => {
+    setRubric(prev =>
+      prev.map((row, i) => {
+        if (i !== rowIndex) return row;
+        const levels = [...row.levels];
+        levels[levelIndex] = value;
+        return { ...row, levels };
+      })
+    );
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -101,6 +150,12 @@ export const InstructorConfigurationForm: React.FC = () => {
       studentConstraints: studentConstraints.filter(c => c.trim() !== ''),
       botConstraints: botConstraints.filter(c => c.trim() !== ''),
       botOpeningOffer: botOpeningOffer.filter(o => o.trim() !== ''),
+      rubric: rubric
+        .filter(row => row.component.trim() !== '' || row.levels.some(l => l.trim() !== ''))
+        .map(row => ({
+          component: row.component.trim(),
+          levels: [row.levels[0] || '', row.levels[1] || '', row.levels[2] || ''],
+        })),
       botStrategy,
       temperament,
       difficulty,
@@ -535,34 +590,83 @@ export const InstructorConfigurationForm: React.FC = () => {
               </div>
             </Card>
 
-            {/* Trophy Info */}
-            <Card padding="lg" className="bg-gradient-to-r from-yellow-50 to-amber-50 border-2 border-yellow-300">
-              <div className="flex items-center gap-3 mb-4">
-                <Trophy size={24} className="text-yellow-600" />
-                <h2 className="text-2xl font-bold text-neutral-900">Trophy System</h2>
+            {/* Grading Rubric */}
+            <Card padding="lg">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="w-10 h-10 rounded-xl bg-primary-100 flex items-center justify-center">
+                  <ClipboardList size={20} className="text-primary-600" />
+                </div>
+                <h2 className="text-2xl font-bold text-neutral-900">Grading Rubric</h2>
               </div>
-              <p className="text-neutral-700 mb-4">
-                Student goals will be automatically evaluated by Claude AI at the end of the negotiation.
-                Trophy levels are determined by achievement:
+              <p className="text-sm text-neutral-600 mb-6">
+                Each row is a rubric component. Level 1 is the lowest performance and Level 3 is the
+                highest. Claude AI grades the student against this rubric at the end of the negotiation,
+                and the student sees exactly where they landed on each component.
               </p>
-              <ul className="space-y-2 text-sm text-neutral-800">
-                <li className="flex items-start gap-2">
-                  <span className="text-lg">❌</span>
-                  <div><strong>Fail (0%):</strong> Goal was not achieved - no trophy</div>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="text-lg">🥉</span>
-                  <div><strong>Bronze (~70%):</strong> Got close to achieving the goal</div>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="text-lg">🥈</span>
-                  <div><strong>Silver (~90%):</strong> Successfully achieved the goal</div>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="text-lg">🥇</span>
-                  <div><strong>Gold (100%+):</strong> Exceeded the goal</div>
-                </li>
-              </ul>
+
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse" style={{ minWidth: '760px' }}>
+                  <thead>
+                    <tr>
+                      <th className="text-left text-sm font-semibold text-neutral-700 p-2 w-56">Rubric Component</th>
+                      <th className="text-left text-sm font-semibold text-neutral-700 p-2">Level 1 <span className="font-normal text-neutral-400">(low)</span></th>
+                      <th className="text-left text-sm font-semibold text-neutral-700 p-2">Level 2</th>
+                      <th className="text-left text-sm font-semibold text-neutral-700 p-2">Level 3 <span className="font-normal text-neutral-400">(high)</span></th>
+                      <th className="w-10 p-2"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rubric.map((row, rowIndex) => (
+                      <tr key={rowIndex} className="align-top">
+                        <td className="p-2">
+                          <textarea
+                            value={row.component}
+                            onChange={e => handleRubricComponentChange(rowIndex, e.target.value)}
+                            rows={3}
+                            placeholder="e.g., Managed Concessions"
+                            className="w-full px-3 py-2 border border-neutral-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all resize-y text-sm font-medium"
+                          />
+                        </td>
+                        {[0, 1, 2].map(levelIndex => (
+                          <td key={levelIndex} className="p-2">
+                            <textarea
+                              value={row.levels[levelIndex]}
+                              onChange={e => handleRubricLevelChange(rowIndex, levelIndex, e.target.value)}
+                              rows={3}
+                              placeholder={`Describe Level ${levelIndex + 1} performance`}
+                              className="w-full px-3 py-2 border border-neutral-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all resize-y text-sm"
+                            />
+                          </td>
+                        ))}
+                        <td className="p-2">
+                          {rubric.length > 1 && (
+                            <Button
+                              type="button"
+                              variant="danger"
+                              size="sm"
+                              onClick={() => handleRemoveRubricRow(rowIndex)}
+                              title="Remove component"
+                            >
+                              <X size={16} />
+                            </Button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              <Button
+                type="button"
+                variant="primary"
+                size="sm"
+                onClick={handleAddRubricRow}
+                leftIcon={<Plus size={16} />}
+                className="mt-4"
+              >
+                Add Rubric Component
+              </Button>
             </Card>
 
             {/* Actions */}

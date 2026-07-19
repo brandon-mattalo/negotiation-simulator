@@ -4,12 +4,47 @@ import {
   NegotiationSession,
   SessionOutcome,
   OutcomeType,
-  CriteriaEvaluation,
+  RubricRow,
+  RubricEvaluation,
 } from '../types/negotiation';
 
 const CLAUDE_API_KEY = process.env.CLAUDE_API_KEY || '';
 const CLAUDE_API_URL = 'https://api.anthropic.com/v1/messages';
 const CLAUDE_MODEL = 'claude-sonnet-4-6';
+
+// Used when a configuration has no rubric yet (e.g. created before the rubric
+// feature). Guarantees every evaluation has at least the goals component.
+const DEFAULT_RUBRIC: RubricRow[] = [
+  {
+    component: 'Achieved Goals of Negotiation',
+    levels: [
+      'Student achieved no goals from the exercise.',
+      'Student achieved a minority of goals from the exercise.',
+      'Student achieved most or all goals from the exercise.',
+    ],
+  },
+];
+
+// Overall grade is the statistical mode of the per-component levels. On a tie
+// for most-frequent, pick the tied level closest to the mean, rounding down
+// when exactly equidistant.
+function computeOverallLevel(levels: number[]): number {
+  if (levels.length === 0) return 1;
+  const counts = new Map<number, number>();
+  for (const l of levels) counts.set(l, (counts.get(l) || 0) + 1);
+  const maxCount = Math.max(...counts.values());
+  const modes = [...counts.entries()]
+    .filter(([, c]) => c === maxCount)
+    .map(([l]) => l);
+  if (modes.length === 1) return modes[0];
+  const mean = levels.reduce((a, b) => a + b, 0) / levels.length;
+  modes.sort((a, b) => {
+    const da = Math.abs(a - mean);
+    const db = Math.abs(b - mean);
+    return da !== db ? da - db : a - b; // prefer the lower level when equidistant
+  });
+  return modes[0];
+}
 
 interface ClaudeMessage {
   role: 'user' | 'assistant';
@@ -52,7 +87,8 @@ export class ClaudeService {
     config: NegotiationConfiguration,
     session: NegotiationSession
   ): Promise<SessionOutcome> {
-    const evaluationPrompt = this.buildEvaluationPrompt(config, session);
+    const rubric = config.rubric && config.rubric.length > 0 ? config.rubric : DEFAULT_RUBRIC;
+    const evaluationPrompt = this.buildEvaluationPrompt(config, session, rubric);
 
     const messages: ClaudeMessage[] = [
       {
@@ -62,7 +98,7 @@ export class ClaudeService {
     ];
 
     const response = await this.callClaudeAPI(
-      'You are an expert negotiation evaluator. Analyze the conversation and provide a detailed evaluation in JSON format.',
+      'You are an expert negotiation evaluator. Analyze the conversation and grade the student against the provided rubric. Respond only with valid JSON.',
       messages,
       2048 // Higher token limit for detailed evaluation
     );
@@ -77,84 +113,55 @@ export class ClaudeService {
       }
 
       const evaluation = JSON.parse(jsonText);
+      const scores: any[] = Array.isArray(evaluation.rubricScores) ? evaluation.rubricScores : [];
 
-      // Map achievement levels to trophy levels and count trophies
-      const trophiesEarned = { bronze: 0, silver: 0, gold: 0 };
-      const processedEvaluations: CriteriaEvaluation[] = evaluation.criteriaEvaluation.map((ce: any) => {
-        let trophyLevel: 'bronze' | 'silver' | 'gold' | undefined;
-        let achieved = false;
-
-        // Map achievement level to trophy
-        switch (ce.achievementLevel) {
-          case 'close':
-            trophyLevel = 'bronze';
-            achieved = true;
-            trophiesEarned.bronze++;
-            break;
-          case 'achieve':
-            trophyLevel = 'silver';
-            achieved = true;
-            trophiesEarned.silver++;
-            break;
-          case 'exceed':
-            trophyLevel = 'gold';
-            achieved = true;
-            trophiesEarned.gold++;
-            break;
-          case 'fail':
-          default:
-            trophyLevel = undefined;
-            achieved = false;
-            break;
-        }
-
+      // Align AI scores with the rubric rows by index and snapshot the rubric
+      // text into each evaluation so historical feedback stays stable.
+      const rubricEvaluation: RubricEvaluation[] = rubric.map((row, index) => {
+        const score = scores[index] || {};
+        let levelAchieved = Number(score.levelAchieved);
+        if (!Number.isFinite(levelAchieved)) levelAchieved = 1;
+        levelAchieved = Math.min(row.levels.length, Math.max(1, Math.round(levelAchieved)));
         return {
-          goal: ce.goal,
-          achievementLevel: ce.achievementLevel,
-          trophyLevel,
-          achieved,
-          notes: ce.notes,
+          component: row.component,
+          levels: row.levels,
+          levelAchieved,
+          explanation: typeof score.explanation === 'string' && score.explanation.trim()
+            ? score.explanation
+            : 'No explanation was provided for this component.',
         };
       });
 
-      // Determine overall trophy based on achievement
-      let overallTrophy: 'bronze' | 'silver' | 'gold' | undefined;
-      const totalAchieved = trophiesEarned.bronze + trophiesEarned.silver + trophiesEarned.gold;
-      const totalGoals = processedEvaluations.length;
-      const achievementRate = totalAchieved / totalGoals;
-
-      if (achievementRate >= 0.9 && trophiesEarned.gold > 0) {
-        overallTrophy = 'gold';
-      } else if (achievementRate >= 0.7) {
-        overallTrophy = 'silver';
-      } else if (achievementRate >= 0.4) {
-        overallTrophy = 'bronze';
-      }
+      const overallLevel = computeOverallLevel(rubricEvaluation.map(r => r.levelAchieved));
 
       return {
         type: evaluation.type as OutcomeType,
-        feedback: evaluation.feedback,
-        criteriaEvaluation: processedEvaluations,
-        botAnalysis: evaluation.botAnalysis,
-        trophiesEarned,
-        overallTrophy,
+        feedback: evaluation.feedback || '',
+        botAnalysis: evaluation.botAnalysis || '',
+        rubricEvaluation,
+        overallLevel,
+        overallAssessment: evaluation.overallAssessment || '',
       };
     } catch (error) {
       console.error('Failed to parse evaluation:', error);
       console.error('Response was:', response);
 
-      // Fallback if JSON parsing fails
+      // Fallback if JSON parsing fails: still return a valid rubric-shaped
+      // outcome so the feedback screen renders.
+      const rubricEvaluation: RubricEvaluation[] = rubric.map(row => ({
+        component: row.component,
+        levels: row.levels,
+        levelAchieved: 1,
+        explanation: 'Unable to automatically evaluate this component.',
+      }));
+
       return {
         type: 'partial',
         feedback: 'Evaluation completed but could not be automatically parsed. Please review the conversation manually.',
-        criteriaEvaluation: config.studentGoals.map(goal => ({
-          goal,
-          achievementLevel: 'fail' as const,
-          achieved: false,
-          notes: 'Unable to automatically evaluate',
-        })),
         botAnalysis: 'Evaluation system encountered an issue processing the results.',
-        trophiesEarned: { bronze: 0, silver: 0, gold: 0 },
+        rubricEvaluation,
+        overallLevel: 1,
+        overallAssessment: 'The automated evaluation could not be completed.',
       };
     }
   }
@@ -278,8 +285,12 @@ private buildSystemPrompt(config: NegotiationConfiguration): string {
     return prompt;
   }
   
-  private buildEvaluationPrompt(config: NegotiationConfiguration, session: NegotiationSession): string {
-    let prompt = `Evaluate the following negotiation session based on how well the student achieved their goals.\n\n`;
+  private buildEvaluationPrompt(
+    config: NegotiationConfiguration,
+    session: NegotiationSession,
+    rubric: RubricRow[]
+  ): string {
+    let prompt = `Evaluate the following negotiation session by grading the student against the rubric provided below.\n\n`;
 
     prompt += `SCENARIO: ${config.scenario}\n\n`;
 
@@ -306,6 +317,14 @@ private buildSystemPrompt(config: NegotiationConfiguration): string {
       prompt += `${index + 1}. ${constraint}\n`;
     });
 
+    prompt += `\n\nGRADING RUBRIC (grade each component; Level 1 = lowest performance, Level 3 = highest performance):\n`;
+    rubric.forEach((row, index) => {
+      prompt += `\nComponent ${index + 1}: ${row.component}\n`;
+      row.levels.forEach((level, li) => {
+        prompt += `  - Level ${li + 1}: ${level}\n`;
+      });
+    });
+
     prompt += `\n\nCONVERSATION TRANSCRIPT:\n`;
     session.messages.forEach(msg => {
       const speaker = msg.role === 'student' ? 'STUDENT' : msg.role === 'bot' ? 'BOT' : 'SYSTEM';
@@ -315,35 +334,33 @@ private buildSystemPrompt(config: NegotiationConfiguration): string {
     prompt += `\n\nProvide your evaluation in the following JSON format:\n`;
     prompt += `{\n`;
     prompt += `  "type": "success" | "partial" | "failure" | "timeout",\n`;
+    prompt += `  "overallAssessment": "1-2 sentence overall assessment of the student's performance",\n`;
     prompt += `  "feedback": "2-3 paragraphs of constructive feedback on the student's negotiation performance",\n`;
-    prompt += `  "criteriaEvaluation": [\n`;
+    prompt += `  "rubricScores": [\n`;
     prompt += `    {\n`;
-    prompt += `      "goal": "exact text of the student's goal",\n`;
-    prompt += `      "achievementLevel": "fail" | "close" | "achieve" | "exceed",\n`;
-    prompt += `      "notes": "detailed explanation of how well this goal was achieved and why"\n`;
+    prompt += `      "levelAchieved": 1 | 2 | 3,\n`;
+    prompt += `      "explanation": "specific explanation of why the student earned this level for this component, referencing what happened in the transcript"\n`;
     prompt += `    }\n`;
     prompt += `  ],\n`;
     prompt += `  "botAnalysis": "1-2 paragraphs from the bot's perspective on how the negotiation went"\n`;
     prompt += `}\n\n`;
 
-    prompt += `IMPORTANT - Achievement Level Guidelines:\n`;
-    prompt += `For each student goal, evaluate how well they achieved it:\n`;
-    prompt += `- "fail" (0%): The goal was not achieved at all or barely any progress made\n`;
-    prompt += `- "close" (~70%): Significant progress toward the goal, got close but didn't fully achieve it\n`;
-    prompt += `- "achieve" (~90%): Successfully achieved the goal as stated\n`;
-    prompt += `- "exceed" (100%+): Not only achieved but exceeded the goal beyond expectations\n\n`;
+    prompt += `CRITICAL - Rubric Scoring Rules:\n`;
+    prompt += `- Return EXACTLY ${rubric.length} item(s) in "rubricScores", one per component, in the SAME ORDER as the rubric above.\n`;
+    prompt += `- For each component, choose the single level (1, 2, or 3) whose description best matches the student's actual performance in the transcript.\n`;
+    prompt += `- "levelAchieved" MUST be an integer 1, 2, or 3. Level 1 = lowest, Level 3 = highest.\n`;
+    prompt += `- The "explanation" must justify the chosen level with concrete evidence from the conversation.\n\n`;
 
     prompt += `CRITICAL - Feedback Requirements:\n`;
-    prompt += `- If ANY goal received a rating below "exceed" (i.e., "achieve", "close", or "fail"), your feedback MUST include specific areas for improvement\n`;
-    prompt += `- DO NOT say the negotiation was "perfect" or imply no improvement is needed unless ALL goals achieved "exceed" level\n`;
-    prompt += `- For each non-"exceed" goal, provide concrete suggestions on what the student could have done better\n`;
-    prompt += `- Be constructive but honest about gaps between performance and excellence\n\n`;
+    prompt += `- If any component scored below Level 3, your feedback MUST include specific, concrete areas for improvement.\n`;
+    prompt += `- Do NOT imply the negotiation was flawless unless every component reached Level 3.\n`;
+    prompt += `- Be constructive but honest about gaps between the student's performance and the highest level.\n\n`;
 
-    prompt += `Determine the overall outcome type based on goal achievement:\n`;
-    prompt += `- "success": Most goals achieved at "achieve" or "exceed" level\n`;
-    prompt += `- "partial": Mix of achievement levels, some goals met\n`;
-    prompt += `- "failure": Most goals at "fail" or "close" level\n`;
-    prompt += `- "timeout": Session ended due to time limit before meaningful progress\n`;
+    prompt += `Determine the overall outcome "type" based on the rubric levels achieved:\n`;
+    prompt += `- "success": Most components at the highest level.\n`;
+    prompt += `- "partial": A mix of levels.\n`;
+    prompt += `- "failure": Most components at the lowest level.\n`;
+    prompt += `- "timeout": Session ended due to time limit before meaningful progress.\n`;
 
     return prompt;
   }

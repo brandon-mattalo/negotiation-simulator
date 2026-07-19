@@ -1,21 +1,21 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useSession } from '../../contexts/SessionContext';
 import { useNavigate } from 'react-router-dom';
-import { Send, StopCircle, Clock, ArrowLeft, Trophy, Target, X, Mic, AlertCircle } from 'lucide-react';
+import { Send, StopCircle, Clock, ArrowLeft, CheckCircle2, Target, X, Mic, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { GoalsSidebar } from './GoalsSidebar';
+import { FeedbackResults } from './FeedbackResults';
 import { VoiceInput } from './VoiceInput';
 import { useVoice } from '../../hooks/useVoice';
 import { apiService } from '../../services/api.service';
-import { NegotiationConfiguration, AchievementLevel, TrophyLevel } from '../../types/negotiation';
-import { Button, Card, Badge, Input } from '../ui';
+import { NegotiationConfiguration } from '../../types/negotiation';
+import { Button, Card, Badge } from '../ui';
 
 export const ChatInterface: React.FC = () => {
   const { activeSession, sendMessage, endSession, cancelSession, isLoading } = useSession();
   const [message, setMessage] = useState('');
   const [showOutcome, setShowOutcome] = useState(false);
   const [configuration, setConfiguration] = useState<NegotiationConfiguration | null>(null);
-  const [achievementLevels, setAchievementLevels] = useState<Map<number, { level: AchievementLevel; trophy?: TrophyLevel }>>(new Map());
   const [textareaHeight, setTextareaHeight] = useState(96); // Initial height in pixels (roughly 3 rows)
   const [isResizing, setIsResizing] = useState(false);
   const resizeStartY = useRef(0);
@@ -43,20 +43,6 @@ export const ChatInterface: React.FC = () => {
       loadConfiguration();
     }
   }, [activeSession]);
-
-  useEffect(() => {
-    if (activeSession?.outcome) {
-      // Map criteria evaluation to achievement levels by index
-      const levels = new Map<number, { level: AchievementLevel; trophy?: TrophyLevel }>();
-      activeSession.outcome.criteriaEvaluation.forEach((ce, index) => {
-        levels.set(index, {
-          level: ce.achievementLevel,
-          trophy: ce.trophyLevel,
-        });
-      });
-      setAchievementLevels(levels);
-    }
-  }, [activeSession?.outcome]);
 
   useEffect(() => {
     if (!isVoiceMode || !activeSession?.messages.length) return;
@@ -161,142 +147,32 @@ export const ChatInterface: React.FC = () => {
   }, [isResizing]);
 
   if (showOutcome && activeSession.outcome) {
-    const outcomeColors = {
-      success: { bg: 'bg-success-50', border: 'border-success-200', text: 'text-success-700' },
-      partial: { bg: 'bg-warning-50', border: 'border-warning-200', text: 'text-warning-700' },
-      failure: { bg: 'bg-danger-50', border: 'border-danger-200', text: 'text-danger-700' },
-    };
-    const colors = outcomeColors[activeSession.outcome.type as keyof typeof outcomeColors] || outcomeColors.partial;
-
     return (
       <div className="min-h-screen py-8 px-4">
-        <div className="max-w-4xl mx-auto">
+        <div className="max-w-5xl mx-auto">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4 }}
           >
-            <Card padding="lg" className="mb-6">
-              <div className="flex items-center gap-4 mb-6">
-                <div className="w-16 h-16 rounded-3xl bg-primary-100 flex items-center justify-center">
-                  <Trophy size={32} className="text-primary-600" />
-                </div>
-                <div>
-                  <h2 className="text-3xl font-bold text-neutral-900">Session Complete!</h2>
-                  <p className="text-neutral-600">Here's how you performed</p>
-                </div>
+            <div className="flex items-center gap-4 mb-6">
+              <div className="w-16 h-16 rounded-3xl bg-primary-100 flex items-center justify-center">
+                <CheckCircle2 size={32} className="text-primary-600" />
               </div>
-
-              <div className={`p-4 rounded-2xl border mb-6 ${colors.bg} ${colors.border}`}>
-                <p className={`font-bold text-xl capitalize text-center ${colors.text}`}>
-                  {activeSession.outcome.type}
-                </p>
+              <div>
+                <h2 className="text-3xl font-bold text-neutral-900">Session Complete!</h2>
+                <p className="text-neutral-600">Here's how you performed against the rubric</p>
               </div>
+            </div>
 
-              <div className="mb-6">
-                <h3 className="text-xl font-bold text-neutral-900 mb-3">Feedback</h3>
-                <p className="text-neutral-700 whitespace-pre-wrap leading-relaxed">
-                  {activeSession.outcome.feedback}
-                </p>
-              </div>
-            </Card>
-
-            <Card padding="lg" className="mb-6">
-              <h3 className="text-xl font-bold text-neutral-900 mb-6">Trophies Earned</h3>
-              <div className="grid grid-cols-3 gap-4 mb-6">
-                <div className="text-center p-6 bg-amber-50 rounded-2xl border border-amber-200">
-                  <div className="text-5xl mb-3">🥉</div>
-                  <div className="font-bold text-2xl text-amber-700 mb-1">
-                    {activeSession.outcome.trophiesEarned.bronze}
-                  </div>
-                  <div className="text-sm text-amber-600 font-medium">Bronze</div>
-                </div>
-                <div className="text-center p-6 bg-slate-50 rounded-2xl border border-slate-300">
-                  <div className="text-5xl mb-3">🥈</div>
-                  <div className="font-bold text-2xl text-slate-700 mb-1">
-                    {activeSession.outcome.trophiesEarned.silver}
-                  </div>
-                  <div className="text-sm text-slate-600 font-medium">Silver</div>
-                </div>
-                <div className="text-center p-6 bg-yellow-50 rounded-2xl border border-yellow-300">
-                  <div className="text-5xl mb-3">🥇</div>
-                  <div className="font-bold text-2xl text-yellow-700 mb-1">
-                    {activeSession.outcome.trophiesEarned.gold}
-                  </div>
-                  <div className="text-sm text-yellow-600 font-medium">Gold</div>
-                </div>
-              </div>
-
-              {activeSession.outcome.overallTrophy && (
-                <motion.div
-                  initial={{ scale: 0.9, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  transition={{ duration: 0.5, delay: 0.2 }}
-                  className="p-6 bg-gradient-to-r from-yellow-50 via-amber-50 to-orange-50 rounded-3xl border-2 border-yellow-400 mb-6"
-                >
-                  <div className="text-center">
-                    <div className="text-7xl mb-3">
-                      {activeSession.outcome.overallTrophy === 'gold' ? '🥇' :
-                       activeSession.outcome.overallTrophy === 'silver' ? '🥈' : '🥉'}
-                    </div>
-                    <p className="font-bold text-2xl text-amber-900">
-                      Overall Achievement: {activeSession.outcome.overallTrophy.toUpperCase()}!
-                    </p>
-                  </div>
-                </motion.div>
-              )}
-
-              <h3 className="text-xl font-bold text-neutral-900 mb-4">Goal Achievements</h3>
-              <div className="space-y-3">
-                {activeSession.outcome.criteriaEvaluation.map((criteria, idx) => (
-                  <motion.div
-                    key={idx}
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ duration: 0.3, delay: idx * 0.1 }}
-                    className="flex items-start gap-3 p-4 bg-neutral-50 rounded-2xl border border-neutral-200"
-                  >
-                    <span className={`text-3xl flex-shrink-0 ${criteria.achieved ? '' : 'grayscale opacity-50'}`}>
-                      {criteria.trophyLevel === 'gold' ? '🥇' :
-                       criteria.trophyLevel === 'silver' ? '🥈' :
-                       criteria.trophyLevel === 'bronze' ? '🥉' : '⚪'}
-                    </span>
-                    <div className="flex-1">
-                      <p className="font-semibold text-neutral-900 mb-1">{criteria.goal}</p>
-                      <Badge
-                        variant={
-                          criteria.achievementLevel === 'exceed' ? 'success' :
-                          criteria.achievementLevel === 'achieve' ? 'primary' :
-                          criteria.achievementLevel === 'close' ? 'warning' : 'danger'
-                        }
-                        size="sm"
-                        className="mb-2"
-                      >
-                        {criteria.achievementLevel === 'fail' && 'Failed (0%)'}
-                        {criteria.achievementLevel === 'close' && 'Close (~70%)'}
-                        {criteria.achievementLevel === 'achieve' && 'Achieved (~90%)'}
-                        {criteria.achievementLevel === 'exceed' && 'Exceeded (100%+)'}
-                      </Badge>
-                      <p className="text-sm text-neutral-600">{criteria.notes}</p>
-                    </div>
-                  </motion.div>
-                ))}
-              </div>
-            </Card>
-
-            <Card padding="lg" className="mb-6">
-              <h3 className="text-xl font-bold text-neutral-900 mb-3">Bot Analysis</h3>
-              <p className="text-neutral-700 whitespace-pre-wrap leading-relaxed">
-                {activeSession.outcome.botAnalysis}
-              </p>
-            </Card>
+            <FeedbackResults outcome={activeSession.outcome} animate />
 
             <Button
               variant="primary"
               size="lg"
               onClick={() => navigate('/student')}
               leftIcon={<ArrowLeft size={20} />}
-              className="w-full"
+              className="w-full mt-6"
             >
               Return to Dashboard
             </Button>
@@ -541,7 +417,6 @@ export const ChatInterface: React.FC = () => {
         <GoalsSidebar
           goals={configuration.studentGoals}
           constraints={configuration.studentConstraints}
-          achievementLevels={achievementLevels}
         />
       )}
     </div>

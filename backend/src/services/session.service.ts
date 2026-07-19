@@ -419,6 +419,7 @@ export class SessionService {
       studentConstraints: JSON.parse(config.studentConstraints as string),
       botConstraints: JSON.parse(config.botConstraints as string),
       botOpeningOffer: typeof config.botOpeningOffer === 'string' ? JSON.parse(config.botOpeningOffer) : (config.botOpeningOffer || []),
+      rubric: typeof config.rubric === 'string' ? JSON.parse(config.rubric) : (config.rubric || []),
       botStrategy: config.botStrategy,
       temperament: config.temperament,
       difficulty: config.difficulty,

@@ -60,6 +60,7 @@ model Configuration {
   studentConstraints Json           @map("student_constraints")
   botConstraints     Json           @map("bot_constraints")
   botOpeningOffer    Json           @default("[]") @map("bot_opening_offer")
+  rubric             Json           @default("[]") @map("rubric")
   botStrategy        BotStrategy    @map("bot_strategy")
   temperament        Int
   difficulty         DifficultyLevel

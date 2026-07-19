@@ -42,6 +42,7 @@ export class ConfigController {
         studentConstraints: JSON.parse(config.studentConstraints as string),
         botConstraints: JSON.parse(config.botConstraints as string),
         botOpeningOffer: typeof config.botOpeningOffer === 'string' ? JSON.parse(config.botOpeningOffer) : (config.botOpeningOffer || []),
+        rubric: typeof config.rubric === 'string' ? JSON.parse(config.rubric) : (config.rubric || []),
         botStrategy: config.botStrategy,
         temperament: config.temperament,
         difficulty: config.difficulty,
@@ -81,6 +82,7 @@ export class ConfigController {
         studentConstraints: JSON.parse(config.studentConstraints as string),
         botConstraints: JSON.parse(config.botConstraints as string),
         botOpeningOffer: typeof config.botOpeningOffer === 'string' ? JSON.parse(config.botOpeningOffer) : (config.botOpeningOffer || []),
+        rubric: typeof config.rubric === 'string' ? JSON.parse(config.rubric) : (config.rubric || []),
         botStrategy: config.botStrategy,
         temperament: config.temperament,
         difficulty: config.difficulty,
@@ -105,6 +107,7 @@ export class ConfigController {
         scenario,
         studentGoals, botGoals, studentConstraints, botConstraints,
         botOpeningOffer,
+        rubric,
         botStrategy,
         temperament,
         difficulty,
@@ -136,6 +139,7 @@ export class ConfigController {
           studentConstraints: JSON.stringify(studentConstraints),
           botConstraints: JSON.stringify(botConstraints),
           botOpeningOffer: JSON.stringify(botOpeningOffer || []),
+          rubric: JSON.stringify(rubric || []),
           botStrategy,
           temperament,
           difficulty,
@@ -155,6 +159,7 @@ export class ConfigController {
         studentConstraints: JSON.parse(config.studentConstraints as string),
         botConstraints: JSON.parse(config.botConstraints as string),
         botOpeningOffer: typeof config.botOpeningOffer === 'string' ? JSON.parse(config.botOpeningOffer) : (config.botOpeningOffer || []),
+        rubric: typeof config.rubric === 'string' ? JSON.parse(config.rubric) : (config.rubric || []),
         botStrategy: config.botStrategy,
         temperament: config.temperament,
         difficulty: config.difficulty,
@@ -200,6 +205,7 @@ export class ConfigController {
         'studentConstraints',
         'botConstraints',
         'botOpeningOffer',
+        'rubric',
         'botStrategy',
         'temperament',
         'difficulty',
@@ -211,7 +217,7 @@ export class ConfigController {
         if (field in req.body) {
           if (field === 'studentGoals' || field === 'botGoals' ||
               field === 'studentConstraints' || field === 'botConstraints' ||
-              field === 'botOpeningOffer' || field === 'personality') {
+              field === 'botOpeningOffer' || field === 'rubric' || field === 'personality') {
             updates[field] = JSON.stringify(req.body[field]);
           } else {
             updates[field] = req.body[field];
@@ -251,6 +257,7 @@ export class ConfigController {
         studentConstraints: JSON.parse(config.studentConstraints as string),
         botConstraints: JSON.parse(config.botConstraints as string),
         botOpeningOffer: typeof config.botOpeningOffer === 'string' ? JSON.parse(config.botOpeningOffer) : (config.botOpeningOffer || []),
+        rubric: typeof config.rubric === 'string' ? JSON.parse(config.rubric) : (config.rubric || []),
         botStrategy: config.botStrategy,
         temperament: config.temperament,
         difficulty: config.difficulty,
@@ -337,6 +344,7 @@ export class ConfigController {
         studentConstraints: JSON.parse(config.studentConstraints as string),
         botConstraints: JSON.parse(config.botConstraints as string),
         botOpeningOffer: typeof config.botOpeningOffer === 'string' ? JSON.parse(config.botOpeningOffer) : (config.botOpeningOffer || []),
+        rubric: typeof config.rubric === 'string' ? JSON.parse(config.rubric) : (config.rubric || []),
         botStrategy: config.botStrategy,
         temperament: config.temperament,
         difficulty: config.difficulty,
