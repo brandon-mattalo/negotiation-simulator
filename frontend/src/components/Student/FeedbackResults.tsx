@@ -30,12 +30,22 @@ const levelStyles: Record<number, { badge: string; ring: string; cell: string; l
   },
 };
 
+// Legacy sessions (evaluated before the rubric feature) have no rubric level,
+// so their overall result is shown using the original outcome type.
+const legacyTypeStyles: Record<string, { cell: string; label: string; text: string }> = {
+  success: { cell: levelStyles[3].cell, label: levelStyles[3].label, text: 'Success' },
+  partial: { cell: levelStyles[2].cell, label: levelStyles[2].label, text: 'Partial Success' },
+  failure: { cell: levelStyles[1].cell, label: levelStyles[1].label, text: 'Did Not Succeed' },
+  timeout: { cell: 'bg-neutral-100 border-neutral-300', label: 'text-neutral-700', text: 'Timed Out' },
+};
+
 export const FeedbackResults: React.FC<FeedbackResultsProps> = ({ outcome, animate = false }) => {
   const rubric = outcome.rubricEvaluation || [];
   const hasRubric = rubric.length > 0;
   const maxLevel = hasRubric ? rubric[0].levels.length : 3;
   const overallLevel = outcome.overallLevel || 1;
   const overallStyle = levelStyles[Math.min(3, Math.max(1, overallLevel))];
+  const legacyStyle = legacyTypeStyles[outcome.type] || legacyTypeStyles.partial;
 
   const Wrapper: React.FC<{ children: React.ReactNode; delay?: number }> = ({ children, delay = 0 }) =>
     animate ? (
@@ -52,29 +62,48 @@ export const FeedbackResults: React.FC<FeedbackResultsProps> = ({ outcome, anima
 
   return (
     <div className="space-y-6">
-      {/* Overall assessment grade */}
-      <Wrapper>
-        <Card padding="lg" className={`border-2 ${overallStyle.cell}`}>
-          <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+      {/* Overall assessment grade (rubric-based sessions) */}
+      {hasRubric && (
+        <Wrapper>
+          <Card padding="lg" className={`border-2 ${overallStyle.cell}`}>
+            <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+              <div className="flex items-center gap-4">
+                <div className="w-16 h-16 rounded-3xl bg-white/70 flex items-center justify-center flex-shrink-0">
+                  <Award size={32} className={overallStyle.label} />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-neutral-600 uppercase tracking-wide">Overall Assessment</p>
+                  <p className={`text-3xl font-bold ${overallStyle.label}`}>
+                    Level {overallLevel} <span className="text-neutral-400 text-2xl font-semibold">of {maxLevel}</span>
+                  </p>
+                </div>
+              </div>
+              {outcome.overallAssessment && (
+                <p className="text-neutral-700 leading-relaxed sm:border-l sm:border-neutral-300 sm:pl-4 flex-1">
+                  {outcome.overallAssessment}
+                </p>
+              )}
+            </div>
+          </Card>
+        </Wrapper>
+      )}
+
+      {/* Overall result (legacy sessions evaluated before the rubric feature) */}
+      {!hasRubric && (
+        <Wrapper>
+          <Card padding="lg" className={`border-2 ${legacyStyle.cell}`}>
             <div className="flex items-center gap-4">
               <div className="w-16 h-16 rounded-3xl bg-white/70 flex items-center justify-center flex-shrink-0">
-                <Award size={32} className={overallStyle.label} />
+                <Award size={32} className={legacyStyle.label} />
               </div>
               <div>
-                <p className="text-sm font-medium text-neutral-600 uppercase tracking-wide">Overall Assessment</p>
-                <p className={`text-3xl font-bold ${overallStyle.label}`}>
-                  Level {overallLevel} <span className="text-neutral-400 text-2xl font-semibold">of {maxLevel}</span>
-                </p>
+                <p className="text-sm font-medium text-neutral-600 uppercase tracking-wide">Overall Result</p>
+                <p className={`text-3xl font-bold ${legacyStyle.label}`}>{legacyStyle.text}</p>
               </div>
             </div>
-            {outcome.overallAssessment && (
-              <p className="text-neutral-700 leading-relaxed sm:border-l sm:border-neutral-300 sm:pl-4 flex-1">
-                {outcome.overallAssessment}
-              </p>
-            )}
-          </div>
-        </Card>
-      </Wrapper>
+          </Card>
+        </Wrapper>
+      )}
 
       {/* Rubric table */}
       {hasRubric && (
