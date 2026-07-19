@@ -17,6 +17,12 @@ router.post(
   authController.login.bind(authController)
 );
 
+router.post(
+  '/reviewer-login',
+  validateRequestBody(['role']),
+  authController.reviewerLogin.bind(authController)
+);
+
 router.get('/me', authenticateToken, authController.getCurrentUser.bind(authController));
 
 router.post('/logout', authenticateToken, authController.logout.bind(authController));

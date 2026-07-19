@@ -30,6 +30,42 @@ export class AuthController {
     }
   }
 
+  async reviewerLogin(req: Request, res: Response): Promise<void> {
+    try {
+      const { role } = req.body;
+
+      // Credentials live only in the server environment (Railway) so they are
+      // never shipped to the browser. Usernames are not secret and fall back to
+      // the seeded defaults; passwords must be provided via env.
+      const accounts: Record<string, { username: string; password?: string }> = {
+        professor: {
+          username: process.env.REVIEWER_PROF_USERNAME || 'reviewer-prof',
+          password: process.env.REVIEWER_PROF_PASSWORD,
+        },
+        student: {
+          username: process.env.REVIEWER_STUDENT_USERNAME || 'reviewer-student',
+          password: process.env.REVIEWER_STUDENT_PASSWORD,
+        },
+      };
+
+      const account = accounts[role];
+      if (!account) {
+        res.status(400).json({ error: 'Invalid reviewer role. Must be "professor" or "student"' });
+        return;
+      }
+
+      if (!account.password) {
+        res.status(503).json({ error: 'Reviewer accounts are not configured on the server' });
+        return;
+      }
+
+      const { token, user } = await authService.login(account.username, account.password);
+      res.json({ token, user });
+    } catch (error: any) {
+      res.status(401).json({ error: error.message });
+    }
+  }
+
   async getCurrentUser(req: AuthRequest, res: Response): Promise<void> {
     try {
       if (!req.user) {

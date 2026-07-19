@@ -72,6 +72,15 @@ class ApiService {
     return data;
   }
 
+  async reviewerLogin(role: 'professor' | 'student'): Promise<{ token: string; user: User }> {
+    const data = await this.request<{ token: string; user: User }>('/auth/reviewer-login', {
+      method: 'POST',
+      body: JSON.stringify({ role }),
+    });
+    this.setToken(data.token);
+    return data;
+  }
+
   async getCurrentUser(): Promise<User> {
     const data = await this.request<{ user: User }>('/auth/me');
     return data.user;

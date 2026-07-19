@@ -6,6 +6,7 @@ interface AuthContextValue {
   user: User | null;
   token: string | null;
   login: (username: string, password: string) => Promise<User>;
+  reviewerLogin: (role: 'professor' | 'student') => Promise<User>;
   register: (username: string, password: string, role: UserRole) => Promise<void>;
   logout: () => void;
   isLoading: boolean;
@@ -48,6 +49,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     return userData;
   };
 
+  const reviewerLogin = async (role: 'professor' | 'student'): Promise<User> => {
+    const { token: newToken, user: userData } = await apiService.reviewerLogin(role);
+    setToken(newToken);
+    setUser(userData);
+    return userData;
+  };
+
   const register = async (username: string, password: string, role: UserRole) => {
     await apiService.register(username, password, role);
     await login(username, password);
@@ -60,7 +68,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, login, register, logout, isLoading }}>
+    <AuthContext.Provider value={{ user, token, login, reviewerLogin, register, logout, isLoading }}>
       {children}
     </AuthContext.Provider>
   );
