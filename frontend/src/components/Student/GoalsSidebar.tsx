@@ -8,7 +8,7 @@ interface GoalsSidebarProps {
 
 export const GoalsSidebar: React.FC<GoalsSidebarProps> = ({ goals, constraints }) => {
   return (
-    <div className="w-80 bg-white border-l border-gray-200 p-4 overflow-y-auto">
+    <div className="w-full h-full bg-white p-4 overflow-y-auto">
       <div className="mb-6">
         <div className="flex items-center gap-2 mb-3">
           <Target size={20} className="text-primary-600" />

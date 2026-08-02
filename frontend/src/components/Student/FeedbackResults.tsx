@@ -110,7 +110,8 @@ export const FeedbackResults: React.FC<FeedbackResultsProps> = ({ outcome, anima
         <Wrapper delay={0.1}>
           <Card padding="lg">
             <h3 className="text-xl font-bold text-neutral-900 mb-4">Rubric Results</h3>
-            <div className="overflow-x-auto">
+            {/* Desktop / tablet: full rubric table */}
+            <div className="hidden md:block overflow-x-auto">
               <table className="w-full border-collapse" style={{ minWidth: '820px' }}>
                 <thead>
                   <tr className="border-b border-neutral-200">
@@ -160,6 +161,36 @@ export const FeedbackResults: React.FC<FeedbackResultsProps> = ({ outcome, anima
                   ))}
                 </tbody>
               </table>
+            </div>
+
+            {/* Mobile: stacked rubric cards */}
+            <div className="md:hidden space-y-4">
+              {rubric.map((row, rowIndex) => {
+                const achievedLevel = Math.min(3, Math.max(1, row.levelAchieved));
+                const style = levelStyles[achievedLevel];
+                const achievedText = row.levels[row.levelAchieved - 1];
+                return (
+                  <div key={rowIndex} className="rounded-2xl border border-neutral-200 p-4">
+                    <div className="flex items-start justify-between gap-3 mb-3">
+                      <p className="font-semibold text-neutral-900">{row.component}</p>
+                      <span
+                        className={`flex-shrink-0 inline-flex items-center gap-1 px-2.5 py-1 rounded-full border text-xs font-bold ${style.badge}`}
+                      >
+                        <CheckCircle2 size={13} />
+                        Level {row.levelAchieved}
+                      </span>
+                    </div>
+                    {achievedText && (
+                      <div className={`rounded-xl border p-3 text-sm mb-3 ${style.cell} text-neutral-900`}>
+                        {achievedText}
+                      </div>
+                    )}
+                    {row.explanation && (
+                      <p className="text-sm text-neutral-600">{row.explanation}</p>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </Card>
         </Wrapper>

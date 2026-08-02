@@ -604,7 +604,8 @@ export const InstructorConfigurationForm: React.FC = () => {
                 and the student sees exactly where they landed on each component.
               </p>
 
-              <div className="overflow-x-auto">
+              {/* Desktop / tablet: table layout */}
+              <div className="hidden md:block overflow-x-auto">
                 <table className="w-full border-collapse" style={{ minWidth: '760px' }}>
                   <thead>
                     <tr>
@@ -655,6 +656,63 @@ export const InstructorConfigurationForm: React.FC = () => {
                     ))}
                   </tbody>
                 </table>
+              </div>
+
+              {/* Mobile: stacked card layout */}
+              <div className="md:hidden space-y-4">
+                {rubric.map((row, rowIndex) => (
+                  <div
+                    key={rowIndex}
+                    className="rounded-2xl border border-neutral-200 bg-neutral-50 p-4"
+                  >
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-sm font-semibold text-neutral-700">
+                        Component {rowIndex + 1}
+                      </span>
+                      {rubric.length > 1 && (
+                        <Button
+                          type="button"
+                          variant="danger"
+                          size="sm"
+                          onClick={() => handleRemoveRubricRow(rowIndex)}
+                          title="Remove component"
+                        >
+                          <X size={16} />
+                        </Button>
+                      )}
+                    </div>
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block text-xs font-semibold text-neutral-600 mb-1">
+                          Rubric Component
+                        </label>
+                        <textarea
+                          value={row.component}
+                          onChange={e => handleRubricComponentChange(rowIndex, e.target.value)}
+                          rows={2}
+                          placeholder="e.g., Managed Concessions"
+                          className="w-full px-3 py-2 border border-neutral-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all resize-y text-sm font-medium"
+                        />
+                      </div>
+                      {[0, 1, 2].map(levelIndex => (
+                        <div key={levelIndex}>
+                          <label className="block text-xs font-semibold text-neutral-600 mb-1">
+                            Level {levelIndex + 1}
+                            {levelIndex === 0 && <span className="font-normal text-neutral-400"> (low)</span>}
+                            {levelIndex === 2 && <span className="font-normal text-neutral-400"> (high)</span>}
+                          </label>
+                          <textarea
+                            value={row.levels[levelIndex]}
+                            onChange={e => handleRubricLevelChange(rowIndex, levelIndex, e.target.value)}
+                            rows={3}
+                            placeholder={`Describe Level ${levelIndex + 1} performance`}
+                            className="w-full px-3 py-2 border border-neutral-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all resize-y text-sm"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
               </div>
 
               <Button

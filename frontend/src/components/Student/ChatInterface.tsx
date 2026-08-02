@@ -23,6 +23,7 @@ export const ChatInterface: React.FC = () => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const [isVoiceMode, setIsVoiceMode] = useState(false);
+  const [showGoalsMobile, setShowGoalsMobile] = useState(false);
   const interruptedRef = useRef(false);
   const sendMessageRef = useRef(sendMessage);
   sendMessageRef.current = sendMessage;
@@ -186,10 +187,10 @@ export const ChatInterface: React.FC = () => {
     <div className="flex h-screen bg-neutral-50">
       <div className="flex-1 flex flex-col max-h-screen">
         {/* Header */}
-        <div className="bg-white border-b border-neutral-200 px-6 py-4 shadow-soft">
-          <div className="flex items-center justify-between">
+        <div className="bg-white border-b border-neutral-200 px-4 sm:px-6 py-3 sm:py-4 shadow-soft">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h2 className="text-2xl font-bold text-neutral-900">Negotiation in Progress</h2>
+              <h2 className="text-xl sm:text-2xl font-bold text-neutral-900">Negotiation in Progress</h2>
               {activeSession.timeRemaining !== null && activeSession.timeRemaining !== undefined && (
                 <div className="flex items-center gap-2 mt-1">
                   <Clock size={16} className="text-neutral-500" />
@@ -199,13 +200,24 @@ export const ChatInterface: React.FC = () => {
                 </div>
               )}
             </div>
-            <div className="flex gap-3">
+            <div className="flex flex-wrap gap-2 sm:gap-3">
+              {configuration && (
+                <Button
+                  variant="secondary"
+                  onClick={() => setShowGoalsMobile(true)}
+                  leftIcon={<Target size={18} />}
+                  className="lg:hidden"
+                >
+                  Goals
+                </Button>
+              )}
               <Button
                 variant="secondary"
                 onClick={() => navigate('/student')}
                 leftIcon={<ArrowLeft size={18} />}
               >
-                Exit to Dashboard
+                <span className="hidden sm:inline">Exit to Dashboard</span>
+                <span className="sm:hidden">Exit</span>
               </Button>
               <Button
                 variant="danger"
@@ -213,7 +225,8 @@ export const ChatInterface: React.FC = () => {
                 disabled={isLoading}
                 leftIcon={<X size={18} />}
               >
-                Cancel Negotiation
+                <span className="hidden sm:inline">Cancel Negotiation</span>
+                <span className="sm:hidden">Cancel</span>
               </Button>
               <Button
                 variant="success"
@@ -221,14 +234,15 @@ export const ChatInterface: React.FC = () => {
                 disabled={isLoading}
                 leftIcon={<StopCircle size={18} />}
               >
-                End Negotiation
+                <span className="hidden sm:inline">End Negotiation</span>
+                <span className="sm:hidden">End</span>
               </Button>
             </div>
           </div>
         </div>
 
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6">
           <AnimatePresence initial={false}>
             {activeSession.messages.map((msg, index) => (
               <motion.div
@@ -413,12 +427,58 @@ export const ChatInterface: React.FC = () => {
         </div>
       </div>
 
+      {/* Desktop goals rail */}
       {configuration && (
-        <GoalsSidebar
-          goals={configuration.studentGoals}
-          constraints={configuration.studentConstraints}
-        />
+        <div className="hidden lg:block w-80 border-l border-neutral-200">
+          <GoalsSidebar
+            goals={configuration.studentGoals}
+            constraints={configuration.studentConstraints}
+          />
+        </div>
       )}
+
+      {/* Mobile goals drawer */}
+      <AnimatePresence>
+        {configuration && showGoalsMobile && (
+          <div className="lg:hidden fixed inset-0 z-50">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+              onClick={() => setShowGoalsMobile(false)}
+            />
+            <motion.div
+              initial={{ x: '100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '100%' }}
+              transition={{ type: 'tween', duration: 0.25 }}
+              className="absolute right-0 top-0 h-full w-80 max-w-[85%] bg-white shadow-soft-xl flex flex-col"
+            >
+              <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-200">
+                <div className="flex items-center gap-2">
+                  <Target size={20} className="text-primary-600" />
+                  <span className="font-bold text-neutral-900">Your Goals</span>
+                </div>
+                <button
+                  onClick={() => setShowGoalsMobile(false)}
+                  className="w-10 h-10 rounded-xl flex items-center justify-center text-neutral-500 hover:bg-neutral-100 transition-colors"
+                  aria-label="Close goals"
+                >
+                  <X size={22} />
+                </button>
+              </div>
+              <div className="flex-1 overflow-y-auto">
+                <GoalsSidebar
+                  goals={configuration.studentGoals}
+                  constraints={configuration.studentConstraints}
+                />
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
