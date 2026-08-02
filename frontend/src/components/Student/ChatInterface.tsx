@@ -5,6 +5,7 @@ import { Send, StopCircle, Clock, ArrowLeft, CheckCircle2, Target, X, Mic, Alert
 import { motion, AnimatePresence } from 'framer-motion';
 import { GoalsSidebar } from './GoalsSidebar';
 import { FeedbackResults } from './FeedbackResults';
+import { EvaluationLoadingScreen } from './EvaluationLoadingScreen';
 import { VoiceInput } from './VoiceInput';
 import { useVoice } from '../../hooks/useVoice';
 import { apiService } from '../../services/api.service';
@@ -15,6 +16,7 @@ export const ChatInterface: React.FC = () => {
   const { activeSession, sendMessage, endSession, cancelSession, isLoading } = useSession();
   const [message, setMessage] = useState('');
   const [showOutcome, setShowOutcome] = useState(false);
+  const [isEvaluating, setIsEvaluating] = useState(false);
   const [configuration, setConfiguration] = useState<NegotiationConfiguration | null>(null);
   const [textareaHeight, setTextareaHeight] = useState(96); // Initial height in pixels (roughly 3 rows)
   const [isResizing, setIsResizing] = useState(false);
@@ -99,11 +101,14 @@ export const ChatInterface: React.FC = () => {
   const handleEnd = async () => {
     if (!confirm('Are you sure you want to end this negotiation? Your performance will be evaluated.')) return;
 
+    setIsEvaluating(true);
     try {
       await endSession();
       setShowOutcome(true);
     } catch (error) {
       console.error('Failed to end session:', error);
+    } finally {
+      setIsEvaluating(false);
     }
   };
 
@@ -146,6 +151,10 @@ export const ChatInterface: React.FC = () => {
       };
     }
   }, [isResizing]);
+
+  if (isEvaluating) {
+    return <EvaluationLoadingScreen />;
+  }
 
   if (showOutcome && activeSession.outcome) {
     return (
