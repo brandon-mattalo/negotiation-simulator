@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, MessageSquare, Trophy, AlertCircle } from 'lucide-react';
+import { ArrowLeft, MessageSquare, Trophy, AlertCircle, Trash2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { PageLayout } from '../components/Layout/PageLayout';
-import { Card, Badge, Button, SkeletonCard } from '../components/ui';
+import { Card, Badge, Button, SkeletonCard, Modal, useToast } from '../components/ui';
 import { FeedbackResults } from '../components/Student/FeedbackResults';
 import { apiService } from '../services/api.service';
 import { NegotiationSession } from '../types/negotiation';
@@ -13,8 +13,11 @@ export const SessionDetail: React.FC = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { showToast } = useToast();
   const [session, setSession] = useState<NegotiationSession | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     loadSession();
@@ -32,7 +35,22 @@ export const SessionDetail: React.FC = () => {
     }
   };
 
+  const handleDelete = async () => {
+    if (!id) return;
+    setIsDeleting(true);
+    try {
+      await apiService.deleteSession(id);
+      showToast('success', 'Transcript deleted successfully');
+      navigate('/instructor/review');
+    } catch (error: any) {
+      showToast('error', error.message || 'Failed to delete transcript');
+      setIsDeleting(false);
+      setShowDeleteConfirm(false);
+    }
+  };
+
   const backPath = user?.role === 'instructor' ? '/instructor/review' : '/student/history';
+  const isInstructor = user?.role === 'instructor';
 
   if (isLoading) {
     return (
@@ -80,13 +98,24 @@ export const SessionDetail: React.FC = () => {
       title="Session Details"
       subtitle={`Started: ${new Date(session.startTime).toLocaleString()}${session.endTime ? ` • Ended: ${new Date(session.endTime).toLocaleString()}` : ''}`}
       actions={
-        <Button
-          variant="secondary"
-          onClick={() => navigate(backPath)}
-          leftIcon={<ArrowLeft size={18} />}
-        >
-          Back to {user?.role === 'instructor' ? 'Review' : 'History'}
-        </Button>
+        <div className="flex items-center gap-3">
+          <Button
+            variant="secondary"
+            onClick={() => navigate(backPath)}
+            leftIcon={<ArrowLeft size={18} />}
+          >
+            Back to {isInstructor ? 'Review' : 'History'}
+          </Button>
+          {isInstructor && (
+            <Button
+              variant="danger"
+              onClick={() => setShowDeleteConfirm(true)}
+              leftIcon={<Trash2 size={18} />}
+            >
+              Delete Transcript
+            </Button>
+          )}
+        </div>
       }
     >
       <div className="space-y-6">
@@ -165,6 +194,35 @@ export const SessionDetail: React.FC = () => {
           </>
         )}
       </div>
+
+      <Modal
+        isOpen={showDeleteConfirm}
+        onClose={() => !isDeleting && setShowDeleteConfirm(false)}
+        title="Delete Transcript"
+        size="sm"
+      >
+        <p className="text-neutral-600 mb-6">
+          Are you sure you want to permanently delete this transcript? This action
+          cannot be undone.
+        </p>
+        <div className="flex justify-end gap-3">
+          <Button
+            variant="secondary"
+            onClick={() => setShowDeleteConfirm(false)}
+            disabled={isDeleting}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="danger"
+            onClick={handleDelete}
+            isLoading={isDeleting}
+            leftIcon={<Trash2 size={18} />}
+          >
+            Delete
+          </Button>
+        </div>
+      </Modal>
     </PageLayout>
   );
 };

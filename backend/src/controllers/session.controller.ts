@@ -84,6 +84,23 @@ export class SessionController {
     }
   }
 
+  async delete(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const { id } = req.params;
+
+      const session = await sessionService.getSession(id);
+      if (!session) {
+        res.status(404).json({ error: 'Session not found' });
+        return;
+      }
+
+      await sessionService.deleteSession(id);
+      res.json({ message: 'Session deleted successfully' });
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  }
+
   async cancel(req: AuthRequest, res: Response): Promise<void> {
     try {
       const { id } = req.params;

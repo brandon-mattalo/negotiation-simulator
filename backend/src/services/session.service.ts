@@ -393,6 +393,20 @@ export class SessionService {
     });
   }
 
+  async deleteSession(sessionId: string): Promise<void> {
+    const session = await prisma.session.findUnique({
+      where: { id: sessionId },
+    });
+
+    if (!session) {
+      throw new Error('Session not found');
+    }
+
+    await prisma.session.delete({
+      where: { id: sessionId },
+    });
+  }
+
   private mapSession(session: any, messages: Message[]): NegotiationSession {
     return {
       id: session.id,

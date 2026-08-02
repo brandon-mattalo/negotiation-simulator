@@ -168,6 +168,12 @@ class ApiService {
     return data.session;
   }
 
+  async deleteSession(id: string): Promise<void> {
+    await this.request(`/sessions/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
   async getActiveSession(): Promise<NegotiationSession | null> {
     try {
       const data = await this.request<{ session: NegotiationSession }>('/sessions/active');

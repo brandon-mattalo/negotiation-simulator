@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { sessionController } from '../controllers/session.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
+import { requireInstructor } from '../middleware/role.middleware';
 import { validateRequestBody } from '../middleware/validation.middleware';
 
 const router = Router();
@@ -29,5 +30,8 @@ router.post(
 router.post('/:id/end', sessionController.end.bind(sessionController));
 
 router.post('/:id/cancel', sessionController.cancel.bind(sessionController));
+
+// Instructors can delete a session transcript
+router.delete('/:id', requireInstructor, sessionController.delete.bind(sessionController));
 
 export default router;
