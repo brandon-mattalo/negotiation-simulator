@@ -1,13 +1,39 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { User, Lock } from 'lucide-react';
+import { User, Lock, Eye, EyeOff } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useAuth } from '../../contexts/AuthContext';
 import { Button, Input, Card } from '../ui';
+import { ApiError } from '../../services/api.service';
+
+// Maps a login failure to a message that points at the actual cause instead
+// of a blanket "invalid credentials" - helps distinguish a typo from a
+// network/CORS problem, rate limiting, or a server-side outage.
+function describeLoginError(err: unknown): string {
+  if (err instanceof ApiError) {
+    switch (err.status) {
+      case 0:
+        return "Could not reach the server. Check your internet connection, or the server may be temporarily down - please try again in a minute.";
+      case 401:
+        return 'Incorrect username or password. Double-check for extra spaces or autocapitalized letters.';
+      case 429:
+        return 'Too many login attempts from this network. Please wait a minute and try again.';
+      case 503:
+        return 'This account is not fully configured on the server yet. Please try again shortly.';
+      default:
+        if (err.status >= 500) {
+          return 'Something went wrong on our server. Please try again in a moment.';
+        }
+        return err.message || 'Login failed';
+    }
+  }
+  return err instanceof Error ? err.message : 'Login failed';
+}
 
 export const LoginForm: React.FC = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
@@ -22,8 +48,8 @@ export const LoginForm: React.FC = () => {
     try {
       const loggedInUser = await login(username, password);
       navigate(loggedInUser.role === 'instructor' ? '/instructor' : '/student');
-    } catch (err: any) {
-      setError(err.message || 'Login failed');
+    } catch (err) {
+      setError(describeLoginError(err));
     } finally {
       setIsLoading(false);
     }
@@ -76,12 +102,15 @@ export const LoginForm: React.FC = () => {
 
             <Input
               id="password"
-              type="password"
+              type={showPassword ? 'text' : 'password'}
               label="Password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
               leftIcon={<Lock size={18} />}
+              rightIcon={showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              onRightIconClick={() => setShowPassword((v) => !v)}
+              rightIconLabel={showPassword ? 'Hide password' : 'Show password'}
               placeholder="Enter your password"
             />
 

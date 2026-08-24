@@ -10,6 +10,17 @@ import {
   AssignmentType,
 } from '../types/negotiation';
 
+// status 0 marks a request that never got a response (network/CORS/DNS failure)
+export class ApiError extends Error {
+  status: number;
+
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+  }
+}
+
 class ApiService {
   private baseUrl = import.meta.env.VITE_API_URL || '/api';
   private token: string | null = null;
@@ -41,14 +52,20 @@ class ApiService {
       (headers as Record<string, string>)['Authorization'] = `Bearer ${this.token}`;
     }
 
-    const response = await fetch(`${this.baseUrl}${endpoint}`, {
-      ...options,
-      headers,
-    });
+    let response: Response;
+    try {
+      response = await fetch(`${this.baseUrl}${endpoint}`, {
+        ...options,
+        headers,
+      });
+    } catch {
+      // fetch rejects before we get an HTTP status: offline, DNS failure, or CORS block
+      throw new ApiError('Could not reach the server. Check your internet connection and try again.', 0);
+    }
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({ error: 'Request failed' }));
-      throw new Error(error.error || `HTTP ${response.status}`);
+      throw new ApiError(error.error || `HTTP ${response.status}`, response.status);
     }
 
     return response.json();

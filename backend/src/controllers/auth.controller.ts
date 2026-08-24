@@ -1,6 +1,18 @@
 import { Request, Response } from 'express';
-import { authService } from '../services/auth.service';
+import { authService, InvalidCredentialsError } from '../services/auth.service';
 import { AuthRequest } from '../middleware/auth.middleware';
+
+// A rejected login (bad username/password) is a 401; anything else thrown by
+// authService.login (DB unreachable, JWT misconfigured, etc.) is a genuine
+// server-side failure and should surface as a 500, not look like bad creds.
+function respondToLoginFailure(res: Response, error: any): void {
+  if (error instanceof InvalidCredentialsError) {
+    res.status(401).json({ error: error.message });
+    return;
+  }
+  console.error('Unexpected login error:', error);
+  res.status(500).json({ error: 'Something went wrong. Please try again.' });
+}
 
 export class AuthController {
   async register(req: Request, res: Response): Promise<void> {
@@ -26,7 +38,7 @@ export class AuthController {
 
       res.json({ token, user });
     } catch (error: any) {
-      res.status(401).json({ error: error.message });
+      respondToLoginFailure(res, error);
     }
   }
 
@@ -62,7 +74,7 @@ export class AuthController {
       const { token, user } = await authService.login(account.username, account.password);
       res.json({ token, user });
     } catch (error: any) {
-      res.status(401).json({ error: error.message });
+      respondToLoginFailure(res, error);
     }
   }
 

@@ -8,6 +8,15 @@ import { encrypt } from '../utils/encryption.util';
 const prisma = new PrismaClient();
 const SALT_ROUNDS = 10;
 
+// Thrown only for an actual wrong username/password, so callers can tell a
+// rejected login apart from an unexpected failure (DB down, bad config, etc.)
+export class InvalidCredentialsError extends Error {
+  constructor() {
+    super('Invalid credentials');
+    this.name = 'InvalidCredentialsError';
+  }
+}
+
 export class AuthService {
   async register(username: string, password: string, role: UserRole): Promise<User> {
     // Validate input
@@ -64,13 +73,13 @@ export class AuthService {
     });
 
     if (!user) {
-      throw new Error('Invalid credentials');
+      throw new InvalidCredentialsError();
     }
 
     // Verify password
     const isValid = await this.comparePassword(password, user.passwordHash);
     if (!isValid) {
-      throw new Error('Invalid credentials');
+      throw new InvalidCredentialsError();
     }
 
     // Generate token

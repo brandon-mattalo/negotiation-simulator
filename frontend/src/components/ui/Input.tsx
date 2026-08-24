@@ -7,10 +7,12 @@ export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> 
   helperText?: string;
   leftIcon?: React.ReactNode;
   rightIcon?: React.ReactNode;
+  onRightIconClick?: () => void;
+  rightIconLabel?: string;
 }
 
 export const Input = React.forwardRef<HTMLInputElement, InputProps>(
-  ({ label, error, helperText, leftIcon, rightIcon, className, ...props }, ref) => {
+  ({ label, error, helperText, leftIcon, rightIcon, onRightIconClick, rightIconLabel, className, ...props }, ref) => {
     const inputBaseStyles =
       'w-full rounded-xl border px-4 py-2.5 text-base transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-1';
 
@@ -44,7 +46,18 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
             )}
             {...props}
           />
-          {rightIcon && (
+          {rightIcon && onRightIconClick && (
+            <button
+              type="button"
+              onClick={onRightIconClick}
+              aria-label={rightIconLabel}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600 focus:outline-none"
+              tabIndex={-1}
+            >
+              {rightIcon}
+            </button>
+          )}
+          {rightIcon && !onRightIconClick && (
             <div className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400">
               {rightIcon}
             </div>
