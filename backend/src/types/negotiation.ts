@@ -87,6 +87,10 @@ export interface RubricEvaluation {
   levels: string[]; // snapshot of the 3 level descriptions
   levelAchieved: number; // 1-3
   explanation: string;
+  // Actionable advice for reaching the next level up; empty when levelAchieved
+  // is already the highest level. Absent on sessions evaluated before this
+  // field existed.
+  improvementArea?: string;
 }
 
 export interface SessionOutcome {

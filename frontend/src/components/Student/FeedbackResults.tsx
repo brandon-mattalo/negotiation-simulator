@@ -43,6 +43,9 @@ export const FeedbackResults: React.FC<FeedbackResultsProps> = ({ outcome, anima
   const rubric = outcome.rubricEvaluation || [];
   const hasRubric = rubric.length > 0;
   const maxLevel = hasRubric ? rubric[0].levels.length : 3;
+  const improvementItems = hasRubric
+    ? rubric.filter(row => row.levelAchieved < maxLevel && row.improvementArea && row.improvementArea.trim())
+    : [];
   const overallLevel = outcome.overallLevel || 1;
   const overallStyle = levelStyles[Math.min(3, Math.max(1, overallLevel))];
   const legacyStyle = legacyTypeStyles[outcome.type] || legacyTypeStyles.partial;
@@ -225,11 +228,25 @@ export const FeedbackResults: React.FC<FeedbackResultsProps> = ({ outcome, anima
       )}
 
       {/* Written feedback */}
-      {outcome.feedback && (
+      {(outcome.feedback || improvementItems.length > 0) && (
         <Wrapper delay={0.2}>
           <Card padding="lg">
             <h3 className="text-xl font-bold text-neutral-900 mb-3">Feedback</h3>
-            <p className="text-neutral-700 whitespace-pre-wrap leading-relaxed">{outcome.feedback}</p>
+            {outcome.feedback && (
+              <p className="text-neutral-700 whitespace-pre-wrap leading-relaxed">{outcome.feedback}</p>
+            )}
+            {improvementItems.length > 0 && (
+              <div className={outcome.feedback ? 'mt-4' : ''}>
+                <p className="text-sm font-semibold text-neutral-900 mb-2">Areas for Improvement</p>
+                <ul className="list-disc list-inside space-y-1.5">
+                  {improvementItems.map((row, idx) => (
+                    <li key={idx} className="text-neutral-700 leading-relaxed">
+                      <span className="font-medium text-neutral-900">{row.component}:</span> {row.improvementArea}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </Card>
         </Wrapper>
       )}

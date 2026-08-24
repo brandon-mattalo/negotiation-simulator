@@ -129,6 +129,7 @@ export class ClaudeService {
           explanation: typeof score.explanation === 'string' && score.explanation.trim()
             ? score.explanation
             : 'No explanation was provided for this component.',
+          improvementArea: typeof score.improvementArea === 'string' ? score.improvementArea.trim() : '',
         };
       });
 
@@ -153,6 +154,7 @@ export class ClaudeService {
         levels: row.levels,
         levelAchieved: 1,
         explanation: 'Unable to automatically evaluate this component.',
+        improvementArea: '',
       }));
 
       return {
@@ -335,11 +337,12 @@ private buildSystemPrompt(config: NegotiationConfiguration): string {
     prompt += `{\n`;
     prompt += `  "type": "success" | "partial" | "failure" | "timeout",\n`;
     prompt += `  "overallAssessment": "1-2 sentence overall assessment of the student's performance",\n`;
-    prompt += `  "feedback": "2-3 paragraphs of constructive feedback on the student's negotiation performance",\n`;
+    prompt += `  "feedback": "1-2 sentence summary of the student's overall performance across the rubric components",\n`;
     prompt += `  "rubricScores": [\n`;
     prompt += `    {\n`;
     prompt += `      "levelAchieved": 1 | 2 | 3,\n`;
-    prompt += `      "explanation": "specific explanation of why the student earned this level for this component, referencing what happened in the transcript"\n`;
+    prompt += `      "explanation": "specific explanation of why the student earned this level for this component, referencing what happened in the transcript",\n`;
+    prompt += `      "improvementArea": "specific, actionable advice for what the student should do differently to reach the next level up, grounded in the transcript; empty string if this component is already at the highest level"\n`;
     prompt += `    }\n`;
     prompt += `  ],\n`;
     prompt += `  "botAnalysis": "1-2 paragraphs from the bot's perspective on how the negotiation went"\n`;
@@ -351,10 +354,13 @@ private buildSystemPrompt(config: NegotiationConfiguration): string {
     prompt += `- "levelAchieved" MUST be an integer 1, 2, or 3. Level 1 = lowest, Level 3 = highest.\n`;
     prompt += `- The "explanation" must justify the chosen level with concrete evidence from the conversation.\n\n`;
 
+    prompt += `CRITICAL - Improvement Area Rules:\n`;
+    prompt += `- If "levelAchieved" is below the highest level for a component, "improvementArea" MUST contain specific, actionable advice for what the student should do differently next time, grounded in what happened in the transcript.\n`;
+    prompt += `- If "levelAchieved" is already the highest level for a component, set "improvementArea" to an empty string - do not invent an improvement for something the student already did well.\n\n`;
+
     prompt += `CRITICAL - Feedback Requirements:\n`;
-    prompt += `- If any component scored below Level 3, your feedback MUST include specific, concrete areas for improvement.\n`;
-    prompt += `- Do NOT imply the negotiation was flawless unless every component reached Level 3.\n`;
-    prompt += `- Be constructive but honest about gaps between the student's performance and the highest level.\n\n`;
+    prompt += `- "feedback" is a BRIEF summary (1-2 sentences) of the student's overall performance across the rubric components. It is shown above a per-component list of improvement areas, so do NOT restate detailed improvement advice here - that belongs in each component's "improvementArea".\n`;
+    prompt += `- Do NOT imply the negotiation was flawless unless every component reached Level 3.\n\n`;
 
     prompt += `Determine the overall outcome "type" based on the rubric levels achieved:\n`;
     prompt += `- "success": Most components at the highest level.\n`;
