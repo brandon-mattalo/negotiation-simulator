@@ -21,7 +21,7 @@ export const InstructorAssignmentForm: React.FC = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { configurations, fetchConfigurations } = useConfig();
-  const { assignments, fetchAssignments, updateAssignment, createBulkAssignments } = useAssignment();
+  const { assignments, fetchAssignments, createAssignment, updateAssignment } = useAssignment();
   const { showToast } = useToast();
   const isEditMode = Boolean(id);
 
@@ -58,7 +58,7 @@ export const InstructorAssignmentForm: React.FC = () => {
     setAvailableFrom(toDatetimeLocalValue(assignment.availableFrom));
     setAvailableUntil(toDatetimeLocalValue(assignment.availableUntil));
     setDeadline(toDatetimeLocalValue(assignment.deadline));
-    setSelectedStudents([assignment.studentId]);
+    setSelectedStudents((assignment.students || []).map(s => s.id));
   }, [id, assignments]);
 
   const loadStudents = async () => {
@@ -83,34 +83,16 @@ export const InstructorAssignmentForm: React.FC = () => {
       availableFrom: new Date(availableFrom),
       availableUntil: new Date(availableUntil),
       deadline: new Date(deadline),
+      studentIds: selectedStudents,
     };
 
     try {
       if (isEditMode) {
-        // An assignment is tied to exactly one student, so the first
-        // selected student updates this assignment in place; any additional
-        // ones selected become new assignments alongside it.
-        const [primaryStudentId, ...extraStudentIds] = selectedStudents;
-        await updateAssignment(id!, {
-          name,
-          description,
-          theme: theme || undefined,
-          availableFrom: new Date(availableFrom),
-          availableUntil: new Date(availableUntil),
-          deadline: new Date(deadline),
-          configurationId,
-          assignmentType,
-          studentId: primaryStudentId,
-        });
-        if (extraStudentIds.length > 0) {
-          await createBulkAssignments(configurationId, extraStudentIds, assignmentData);
-          showToast('success', `Assignment updated and added for ${extraStudentIds.length} more student(s)!`);
-        } else {
-          showToast('success', 'Assignment updated successfully!');
-        }
+        await updateAssignment(id!, assignmentData);
+        showToast('success', 'Assignment updated successfully!');
       } else {
-        await createBulkAssignments(configurationId, selectedStudents, assignmentData);
-        showToast('success', `Created assignment for ${selectedStudents.length} student(s)!`);
+        await createAssignment(assignmentData);
+        showToast('success', `Assignment created for ${selectedStudents.length} student(s)!`);
       }
       navigate('/instructor/assignments');
     } catch (error: any) {
@@ -133,7 +115,7 @@ export const InstructorAssignmentForm: React.FC = () => {
       title={isEditMode ? 'Edit Assignment' : 'Create Assignment'}
       subtitle={
         isEditMode
-          ? 'Update this assignment’s configuration, student, type, or schedule'
+          ? 'Update this assignment’s configuration, students, type, or schedule'
           : 'Assign a configuration to students with specific deadlines'
       }
       actions={

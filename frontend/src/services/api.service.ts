@@ -223,7 +223,7 @@ class ApiService {
 
   async createAssignment(assignment: {
     configurationId: string;
-    studentId: string;
+    studentIds: string[];
     name: string;
     description: string;
     assignmentType: AssignmentType;
@@ -239,30 +239,21 @@ class ApiService {
     return data.assignment;
   }
 
-  async createBulkAssignments(
-    configId: string,
-    studentIds: string[],
-    assignmentData: {
-      name: string;
-      description: string;
-      assignmentType: AssignmentType;
-      theme?: string;
-      availableFrom: Date;
-      availableUntil: Date;
-      deadline: Date;
-    }
-  ): Promise<Assignment[]> {
-    const data = await this.request<{ assignments: Assignment[] }>('/assignments/bulk', {
-      method: 'POST',
-      body: JSON.stringify({ configurationId: configId, studentIds, ...assignmentData }),
-    });
-    return data.assignments;
-  }
-
-  async updateAssignment(id: string, assignment: Partial<Assignment>): Promise<Assignment> {
+  async updateAssignment(id: string, updates: Partial<{
+    name: string;
+    description: string;
+    theme: string;
+    availableFrom: Date;
+    availableUntil: Date;
+    deadline: Date;
+    isActive: boolean;
+    configurationId: string;
+    assignmentType: AssignmentType;
+    studentIds: string[];
+  }>): Promise<Assignment> {
     const data = await this.request<{ assignment: Assignment }>(`/assignments/${id}`, {
       method: 'PUT',
-      body: JSON.stringify(assignment),
+      body: JSON.stringify(updates),
     });
     return data.assignment;
   }

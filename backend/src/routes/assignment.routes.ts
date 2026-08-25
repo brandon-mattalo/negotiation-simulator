@@ -18,22 +18,6 @@ router.post(
   requireInstructor,
   validateRequestBody([
     'configurationId',
-    'studentId',
-    'name',
-    'description',
-    'assignmentType',
-    'availableFrom',
-    'availableUntil',
-    'deadline',
-  ]),
-  assignmentController.create.bind(assignmentController)
-);
-
-router.post(
-  '/bulk',
-  requireInstructor,
-  validateRequestBody([
-    'configurationId',
     'studentIds',
     'name',
     'description',
@@ -42,7 +26,7 @@ router.post(
     'availableUntil',
     'deadline',
   ]),
-  assignmentController.createBulk.bind(assignmentController)
+  assignmentController.create.bind(assignmentController)
 );
 
 router.put('/:id', requireInstructor, assignmentController.update.bind(assignmentController));

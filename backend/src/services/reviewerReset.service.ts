@@ -71,7 +71,6 @@ export const reviewerResetService = {
               data: {
                 instructorId: prof.id,
                 configurationId: newConfig.id,
-                studentId: stud.id,
                 name: a.name,
                 description: a.description,
                 assignmentType: a.assignmentType,
@@ -80,6 +79,9 @@ export const reviewerResetService = {
                 availableUntil: new Date(a.availableUntil),
                 deadline: new Date(a.deadline),
                 isActive: a.isActive,
+                students: {
+                  create: [{ studentId: stud.id }],
+                },
               },
             });
           }

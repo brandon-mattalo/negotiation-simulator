@@ -135,11 +135,19 @@ export interface Template {
 export type AssignmentType = 'practice' | 'exam';
 export type AssignmentStatus = 'not_started' | 'in_progress' | 'completed' | 'overdue';
 
+// One student's membership on an assignment, with their own progress -
+// only present on the instructor-facing view of an Assignment.
+export interface AssignmentStudent {
+  id: string;
+  username: string;
+  status: AssignmentStatus;
+  session?: NegotiationSession;
+}
+
 export interface Assignment {
   id: string;
   instructorId: string;
   configurationId: string;
-  studentId: string;
   name: string;
   description: string;
   assignmentType: AssignmentType;
@@ -152,6 +160,9 @@ export interface Assignment {
   updatedAt: Date;
   // Computed fields
   configuration?: NegotiationConfiguration;
+  // Instructor-facing: every student assigned, each with their own status/session.
+  students?: AssignmentStudent[];
+  // Student-facing: this assignment as seen by the one student who fetched it.
   status?: AssignmentStatus;
   session?: NegotiationSession;
 }

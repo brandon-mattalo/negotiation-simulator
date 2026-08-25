@@ -36,6 +36,15 @@ export const InstructorAssignments: React.FC = () => {
     }
   };
 
+  const getStatusCounts = (students: { status?: string }[]) => {
+    const counts: Record<string, number> = {};
+    for (const s of students) {
+      const status = s.status || 'not_started';
+      counts[status] = (counts[status] || 0) + 1;
+    }
+    return counts;
+  };
+
   return (
     <PageLayout
       title="Assignments"
@@ -91,17 +100,33 @@ export const InstructorAssignments: React.FC = () => {
                       {assignment.theme && (
                         <Badge variant="neutral">{assignment.theme}</Badge>
                       )}
-                      {assignment.status && (
-                        <Badge variant={getStatusVariant(assignment.status)}>
-                          {assignment.status.replace('_', ' ')}
-                        </Badge>
-                      )}
                     </div>
                     <p className="text-neutral-700 mb-3">{assignment.description}</p>
-                    <div className="flex items-center gap-2 text-sm text-neutral-600">
+                    <div className="flex items-center gap-2 text-sm text-neutral-600 mb-3">
                       <Calendar size={16} className="text-neutral-400" />
                       <span>Deadline: {new Date(assignment.deadline).toLocaleDateString()}</span>
                     </div>
+                    {assignment.students && assignment.students.length > 0 && (
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {Object.entries(getStatusCounts(assignment.students)).map(([status, count]) => (
+                            <Badge key={status} variant={getStatusVariant(status)}>
+                              {count} {status.replace('_', ' ')}
+                            </Badge>
+                          ))}
+                        </div>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {assignment.students.map(s => (
+                            <span
+                              key={s.id}
+                              className="text-xs text-neutral-600 bg-neutral-100 rounded-full px-2.5 py-1"
+                            >
+                              {s.username}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                   <div className="flex flex-wrap gap-2 md:flex-col md:items-end">
                     <Button

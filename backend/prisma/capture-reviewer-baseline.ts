@@ -26,7 +26,7 @@ async function main() {
   const configs = await prisma.configuration.findMany({
     where: { instructorId: prof.id },
     include: {
-      assignments: student ? { where: { studentId: student.id } } : false,
+      assignments: student ? { where: { students: { some: { studentId: student.id } } } } : false,
     },
   });
 

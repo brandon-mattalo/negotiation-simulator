@@ -1,5 +1,5 @@
 import { PrismaClient } from '@prisma/client';
-import { Assignment, AssignmentStatus, AssignmentType } from '../types/negotiation';
+import { Assignment, AssignmentStudent, AssignmentStatus, AssignmentType, Message } from '../types/negotiation';
 
 const prisma = new PrismaClient();
 
@@ -7,7 +7,7 @@ export class AssignmentService {
   async createAssignment(data: {
     instructorId: string;
     configurationId: string;
-    studentId: string;
+    studentIds: string[];
     name: string;
     description: string;
     assignmentType: AssignmentType;
@@ -24,6 +24,10 @@ export class AssignmentService {
       throw new Error('Available until date must be before or equal to deadline');
     }
 
+    if (!data.studentIds || data.studentIds.length === 0) {
+      throw new Error('At least one student must be assigned');
+    }
+
     // Verify configuration exists and belongs to instructor
     const config = await prisma.configuration.findUnique({
       where: { id: data.configurationId },
@@ -37,20 +41,18 @@ export class AssignmentService {
       throw new Error('Configuration does not belong to this instructor');
     }
 
-    // Verify student exists
-    const student = await prisma.user.findUnique({
-      where: { id: data.studentId },
-    });
-
-    if (!student || student.role !== 'student') {
-      throw new Error('Student not found');
+    // Verify every student is enrolled under this instructor
+    for (const studentId of data.studentIds) {
+      const authorized = await this.verifyStudentEnrollment(studentId, data.instructorId);
+      if (!authorized) {
+        throw new Error('One or more students are not enrolled under you');
+      }
     }
 
     const assignment = await prisma.assignment.create({
       data: {
         instructorId: data.instructorId,
         configurationId: data.configurationId,
-        studentId: data.studentId,
         name: data.name,
         description: data.description,
         assignmentType: data.assignmentType,
@@ -58,67 +60,13 @@ export class AssignmentService {
         availableFrom: data.availableFrom,
         availableUntil: data.availableUntil,
         deadline: data.deadline,
-      },
-      include: {
-        configuration: true,
-      },
-    });
-
-    return this.mapAssignment(assignment);
-  }
-
-  async createBulkAssignments(
-    instructorId: string,
-    configurationId: string,
-    studentIds: string[],
-    data: {
-      name: string;
-      description: string;
-      assignmentType: AssignmentType;
-      theme?: string;
-      availableFrom: Date;
-      availableUntil: Date;
-      deadline: Date;
-    }
-  ): Promise<Assignment[]> {
-    // Validate configuration
-    const config = await prisma.configuration.findUnique({
-      where: { id: configurationId },
-    });
-
-    if (!config) {
-      throw new Error('Configuration not found');
-    }
-
-    if (config.instructorId !== instructorId) {
-      throw new Error('Configuration does not belong to this instructor');
-    }
-
-    // Validate all students exist
-    const students = await prisma.user.findMany({
-      where: {
-        id: { in: studentIds },
-        role: 'student',
+        students: {
+          create: data.studentIds.map(studentId => ({ studentId })),
+        },
       },
     });
 
-    if (students.length !== studentIds.length) {
-      throw new Error('One or more student IDs are invalid');
-    }
-
-    // Create assignments for each student
-    const assignments = await Promise.all(
-      studentIds.map(studentId =>
-        this.createAssignment({
-          instructorId,
-          configurationId,
-          studentId,
-          ...data,
-        })
-      )
-    );
-
-    return assignments;
+    return this.getAssignment(assignment.id) as Promise<Assignment>;
   }
 
   async verifyStudentEnrollment(studentId: string, instructorId: string): Promise<boolean> {
@@ -126,89 +74,71 @@ export class AssignmentService {
     return !!enrollment && enrollment.instructorId === instructorId;
   }
 
+  private async getLatestSession(assignmentId: string, studentId: string) {
+    return prisma.session.findFirst({
+      where: { assignmentId, studentId },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  private mapSessionSummary(session: any) {
+    return {
+      id: session.id,
+      studentId: session.studentId,
+      configurationId: session.configurationId,
+      assignmentId: session.assignmentId ?? undefined,
+      messages: JSON.parse(session.messages as string) as Message[],
+      startTime: session.startTime,
+      endTime: session.endTime ?? undefined,
+      timeRemaining: session.timeRemaining ?? undefined,
+      isActive: session.isActive,
+      outcome: session.outcome ? JSON.parse(session.outcome as string) : undefined,
+    };
+  }
+
+  // Student-facing: this assignment flattened to just the one student's own
+  // status/session, matching the shape the app used before assignments could
+  // have multiple students.
   async getAssignmentsForStudent(studentId: string): Promise<Assignment[]> {
-    const assignments = await prisma.assignment.findMany({
+    const memberships = await prisma.assignmentStudent.findMany({
       where: {
         studentId,
-        isActive: true,
+        assignment: { isActive: true },
       },
       include: {
-        configuration: true,
-        sessions: {
-          where: { studentId },
-          orderBy: { createdAt: 'desc' },
-          take: 1,
-        },
+        assignment: { include: { configuration: true } },
       },
       orderBy: {
-        deadline: 'asc',
+        assignment: { deadline: 'asc' },
       },
     });
 
     return Promise.all(
-      assignments.map(async assignment => {
-        const mapped = this.mapAssignment(assignment);
-        mapped.status = await this.getAssignmentStatus(assignment, studentId);
-        if (assignment.sessions && assignment.sessions.length > 0) {
-          const session = assignment.sessions[0];
-          mapped.session = {
-            id: session.id,
-            studentId: session.studentId,
-            configurationId: session.configurationId,
-            assignmentId: session.assignmentId ?? undefined,
-            messages: JSON.parse(session.messages as string),
-            startTime: session.startTime,
-            endTime: session.endTime ?? undefined,
-            timeRemaining: session.timeRemaining ?? undefined,
-            isActive: session.isActive,
-            outcome: session.outcome ? JSON.parse(session.outcome as string) : undefined,
-          };
+      memberships.map(async membership => {
+        const mapped = this.mapAssignment(membership.assignment);
+        mapped.status = await this.getAssignmentStatus(membership.assignment, studentId);
+        const session = await this.getLatestSession(membership.assignment.id, studentId);
+        if (session) {
+          mapped.session = this.mapSessionSummary(session);
         }
         return mapped;
       })
     );
   }
 
+  // Instructor-facing: every assignment they own, each with the full list of
+  // assigned students and each student's own status/session.
   async getAssignmentsForInstructor(instructorId: string): Promise<Assignment[]> {
     const assignments = await prisma.assignment.findMany({
-      where: {
-        instructorId,
-      },
+      where: { instructorId },
       include: {
         configuration: true,
-        student: true,
-        sessions: {
-          orderBy: { createdAt: 'desc' },
-          take: 1,
-        },
+        students: { include: { student: true } },
       },
-      orderBy: {
-        createdAt: 'desc',
-      },
+      orderBy: { createdAt: 'desc' },
     });
 
-    return Promise.all(
-      assignments.map(async assignment => {
-        const mapped = this.mapAssignment(assignment);
-        mapped.status = await this.getAssignmentStatus(assignment, assignment.studentId);
-        if (assignment.sessions && assignment.sessions.length > 0) {
-          const session = assignment.sessions[0];
-          mapped.session = {
-            id: session.id,
-            studentId: session.studentId,
-            configurationId: session.configurationId,
-            assignmentId: session.assignmentId ?? undefined,
-            messages: JSON.parse(session.messages as string),
-            startTime: session.startTime,
-            endTime: session.endTime ?? undefined,
-            timeRemaining: session.timeRemaining ?? undefined,
-            isActive: session.isActive,
-            outcome: session.outcome ? JSON.parse(session.outcome as string) : undefined,
-          };
-        }
-        return mapped;
-      })
-    );
+    return Promise.all(assignments.map(assignment => this.attachStudents(assignment)));
   }
 
   async getAssignment(assignmentId: string): Promise<Assignment | null> {
@@ -216,10 +146,7 @@ export class AssignmentService {
       where: { id: assignmentId },
       include: {
         configuration: true,
-        sessions: {
-          orderBy: { createdAt: 'desc' },
-          take: 1,
-        },
+        students: { include: { student: true } },
       },
     });
 
@@ -227,8 +154,23 @@ export class AssignmentService {
       return null;
     }
 
+    return this.attachStudents(assignment);
+  }
+
+  private async attachStudents(assignment: any): Promise<Assignment> {
     const mapped = this.mapAssignment(assignment);
-    mapped.status = await this.getAssignmentStatus(assignment, assignment.studentId);
+    mapped.students = await Promise.all(
+      assignment.students.map(async (membership: any): Promise<AssignmentStudent> => {
+        const status = await this.getAssignmentStatus(assignment, membership.studentId);
+        const session = await this.getLatestSession(assignment.id, membership.studentId);
+        return {
+          id: membership.student.id,
+          username: membership.student.username,
+          status,
+          session: session ? this.mapSessionSummary(session) : undefined,
+        };
+      })
+    );
     return mapped;
   }
 
@@ -245,7 +187,7 @@ export class AssignmentService {
       isActive: boolean;
       configurationId: string;
       assignmentType: AssignmentType;
-      studentId: string;
+      studentIds: string[];
     }>
   ): Promise<Assignment> {
     // Verify assignment exists and belongs to instructor
@@ -273,22 +215,50 @@ export class AssignmentService {
       }
     }
 
-    if (updates.studentId) {
-      const authorized = await this.verifyStudentEnrollment(updates.studentId, instructorId);
-      if (!authorized) {
-        throw new Error('Student is not enrolled under you');
+    const { studentIds, ...scalarUpdates } = updates;
+
+    if (studentIds) {
+      if (studentIds.length === 0) {
+        throw new Error('At least one student must be assigned');
+      }
+      for (const studentId of studentIds) {
+        const authorized = await this.verifyStudentEnrollment(studentId, instructorId);
+        if (!authorized) {
+          throw new Error('One or more students are not enrolled under you');
+        }
       }
     }
 
-    const assignment = await prisma.assignment.update({
-      where: { id: assignmentId },
-      data: updates,
-      include: {
-        configuration: true,
-      },
+    await prisma.$transaction(async tx => {
+      if (Object.keys(scalarUpdates).length > 0) {
+        await tx.assignment.update({ where: { id: assignmentId }, data: scalarUpdates });
+      }
+
+      if (studentIds) {
+        const current = await tx.assignmentStudent.findMany({
+          where: { assignmentId },
+          select: { studentId: true },
+        });
+        const currentIds = new Set(current.map(c => c.studentId));
+        const nextIds = new Set(studentIds);
+
+        const toAdd = studentIds.filter(id => !currentIds.has(id));
+        const toRemove = [...currentIds].filter(id => !nextIds.has(id));
+
+        if (toAdd.length > 0) {
+          await tx.assignmentStudent.createMany({
+            data: toAdd.map(studentId => ({ assignmentId, studentId })),
+          });
+        }
+        if (toRemove.length > 0) {
+          await tx.assignmentStudent.deleteMany({
+            where: { assignmentId, studentId: { in: toRemove } },
+          });
+        }
+      }
     });
 
-    return this.mapAssignment(assignment);
+    return this.getAssignment(assignmentId) as Promise<Assignment>;
   }
 
   async deleteAssignment(assignmentId: string, instructorId: string): Promise<void> {
@@ -353,7 +323,6 @@ export class AssignmentService {
       id: assignment.id,
       instructorId: assignment.instructorId,
       configurationId: assignment.configurationId,
-      studentId: assignment.studentId,
       name: assignment.name,
       description: assignment.description,
       assignmentType: assignment.assignmentType,

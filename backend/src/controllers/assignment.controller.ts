@@ -34,55 +34,32 @@ export class AssignmentController {
 
       const userId = req.user!.userId;
       const role = req.user!.role;
-      const authorized = role === 'instructor'
-        ? assignment.instructorId === userId
-        : assignment.studentId === userId;
-      if (!authorized) {
+
+      if (role === 'instructor') {
+        if (assignment.instructorId !== userId) {
+          res.status(403).json({ error: 'Unauthorized' });
+          return;
+        }
+        res.json({ assignment });
+        return;
+      }
+
+      // Students never see the rest of the roster - flatten to just their
+      // own membership, same shape the list endpoint already returns them.
+      const membership = assignment.students?.find(s => s.id === userId);
+      if (!membership) {
         res.status(403).json({ error: 'Unauthorized' });
         return;
       }
 
-      res.json({ assignment });
+      const { students, ...rest } = assignment;
+      res.json({ assignment: { ...rest, status: membership.status, session: membership.session } });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
   }
 
   async create(req: AuthRequest, res: Response): Promise<void> {
-    try {
-      const instructorId = req.user!.userId;
-      const {
-        configurationId,
-        studentId,
-        name,
-        description,
-        assignmentType,
-        theme,
-        availableFrom,
-        availableUntil,
-        deadline,
-      } = req.body;
-
-      const assignment = await assignmentService.createAssignment({
-        instructorId,
-        configurationId,
-        studentId,
-        name,
-        description,
-        assignmentType: assignmentType as AssignmentType,
-        theme,
-        availableFrom: new Date(availableFrom),
-        availableUntil: new Date(availableUntil),
-        deadline: new Date(deadline),
-      });
-
-      res.status(201).json({ assignment });
-    } catch (error: any) {
-      res.status(400).json({ error: error.message });
-    }
-  }
-
-  async createBulk(req: AuthRequest, res: Response): Promise<void> {
     try {
       const instructorId = req.user!.userId;
       const {
@@ -102,22 +79,20 @@ export class AssignmentController {
         return;
       }
 
-      const assignments = await assignmentService.createBulkAssignments(
+      const assignment = await assignmentService.createAssignment({
         instructorId,
         configurationId,
         studentIds,
-        {
-          name,
-          description,
-          assignmentType: assignmentType as AssignmentType,
-          theme,
-          availableFrom: new Date(availableFrom),
-          availableUntil: new Date(availableUntil),
-          deadline: new Date(deadline),
-        }
-      );
+        name,
+        description,
+        assignmentType: assignmentType as AssignmentType,
+        theme,
+        availableFrom: new Date(availableFrom),
+        availableUntil: new Date(availableUntil),
+        deadline: new Date(deadline),
+      });
 
-      res.status(201).json({ assignments });
+      res.status(201).json({ assignment });
     } catch (error: any) {
       res.status(400).json({ error: error.message });
     }
@@ -139,7 +114,7 @@ export class AssignmentController {
         'isActive',
         'configurationId',
         'assignmentType',
-        'studentId',
+        'studentIds',
       ];
 
       for (const field of allowedFields) {

@@ -48,7 +48,7 @@ model User {
 
   configurations Configuration[]
   sessions       Session[]       @relation("StudentSessions")
-  assignments    Assignment[]    @relation("StudentAssignments")
+  assignmentMemberships AssignmentStudent[] @relation("AssignmentMemberships")
   instructorAssignments Assignment[] @relation("InstructorAssignments")
   enrolledStudents  Enrollment[] @relation("InstructorEnrollments")
   enrollment        Enrollment?  @relation("StudentEnrollment")
@@ -119,7 +119,6 @@ model Assignment {
   id              String         @id @default(uuid())
   instructorId    String         @map("instructor_id")
   configurationId String         @map("configuration_id")
-  studentId       String         @map("student_id")
   name            String
   description     String
   assignmentType  AssignmentType @map("assignment_type")
@@ -131,12 +130,29 @@ model Assignment {
   createdAt       DateTime       @default(now()) @map("created_at")
   updatedAt       DateTime       @updatedAt @map("updated_at")
 
-  instructor      User          @relation("InstructorAssignments", fields: [instructorId], references: [id], onDelete: Cascade)
-  configuration   Configuration @relation(fields: [configurationId], references: [id], onDelete: Cascade)
-  student         User          @relation("StudentAssignments", fields: [studentId], references: [id], onDelete: Cascade)
+  instructor      User                @relation("InstructorAssignments", fields: [instructorId], references: [id], onDelete: Cascade)
+  configuration   Configuration       @relation(fields: [configurationId], references: [id], onDelete: Cascade)
+  students        AssignmentStudent[]
   sessions        Session[]
 
   @@map("assignments")
+}
+
+// One row per student assigned to an Assignment - a true many-to-many, so a
+// single assignment (its config/name/schedule) can be shared by a group of
+// students while each student's own progress is still tracked individually
+// (via Session, which already carries both studentId and assignmentId).
+model AssignmentStudent {
+  id           String   @id @default(uuid())
+  assignmentId String   @map("assignment_id")
+  studentId    String   @map("student_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  assignment   Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  student      User       @relation("AssignmentMemberships", fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([assignmentId, studentId])
+  @@map("assignment_students")
 }
 
 // Tracks the hourly self-reset of the public reviewer-prof/reviewer-student

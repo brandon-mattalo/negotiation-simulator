@@ -6,8 +6,7 @@ interface AssignmentContextValue {
   assignments: Assignment[];
   fetchAssignments: () => Promise<void>;
   createAssignment: (assignment: any) => Promise<Assignment>;
-  createBulkAssignments: (configId: string, studentIds: string[], data: any) => Promise<Assignment[]>;
-  updateAssignment: (id: string, assignment: Partial<Assignment>) => Promise<Assignment>;
+  updateAssignment: (id: string, updates: any) => Promise<Assignment>;
   deleteAssignment: (id: string) => Promise<void>;
   filterByType: (type: AssignmentType | null) => Assignment[];
   filterByTheme: (theme: string | null) => Assignment[];
@@ -51,30 +50,11 @@ export const AssignmentProvider: React.FC<{ children: ReactNode }> = ({ children
     }
   };
 
-  const createBulkAssignments = async (
-    configId: string,
-    studentIds: string[],
-    data: any
-  ): Promise<Assignment[]> => {
+  const updateAssignment = async (id: string, updates: any): Promise<Assignment> => {
     setIsLoading(true);
     setError(null);
     try {
-      const newAssignments = await apiService.createBulkAssignments(configId, studentIds, data);
-      setAssignments(prev => [...prev, ...newAssignments]);
-      return newAssignments;
-    } catch (err: any) {
-      setError(err.message);
-      throw err;
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const updateAssignment = async (id: string, assignment: Partial<Assignment>): Promise<Assignment> => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const updated = await apiService.updateAssignment(id, assignment);
+      const updated = await apiService.updateAssignment(id, updates);
       setAssignments(prev => prev.map(a => (a.id === id ? updated : a)));
       return updated;
     } catch (err: any) {
@@ -120,7 +100,6 @@ export const AssignmentProvider: React.FC<{ children: ReactNode }> = ({ children
         assignments,
         fetchAssignments,
         createAssignment,
-        createBulkAssignments,
         updateAssignment,
         deleteAssignment,
         filterByType,

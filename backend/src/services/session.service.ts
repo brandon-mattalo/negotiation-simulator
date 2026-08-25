@@ -36,7 +36,10 @@ export class SessionService {
         throw new Error('Assignment not found');
       }
 
-      if (assignment.studentId !== studentId) {
+      const membership = await prisma.assignmentStudent.findUnique({
+        where: { assignmentId_studentId: { assignmentId, studentId } },
+      });
+      if (!membership) {
         throw new Error('Assignment does not belong to this student');
       }
 
