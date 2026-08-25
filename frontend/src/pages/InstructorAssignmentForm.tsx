@@ -21,7 +21,7 @@ export const InstructorAssignmentForm: React.FC = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { configurations, fetchConfigurations } = useConfig();
-  const { assignments, fetchAssignments, createAssignment, updateAssignment, createBulkAssignments } = useAssignment();
+  const { assignments, fetchAssignments, updateAssignment, createBulkAssignments } = useAssignment();
   const { showToast } = useToast();
   const isEditMode = Boolean(id);
 
@@ -33,7 +33,6 @@ export const InstructorAssignmentForm: React.FC = () => {
   const [availableFrom, setAvailableFrom] = useState('');
   const [availableUntil, setAvailableUntil] = useState('');
   const [deadline, setDeadline] = useState('');
-  const [isBulk, setIsBulk] = useState(false);
   const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
   const [students, setStudents] = useState<any[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -88,6 +87,10 @@ export const InstructorAssignmentForm: React.FC = () => {
 
     try {
       if (isEditMode) {
+        // An assignment is tied to exactly one student, so the first
+        // selected student updates this assignment in place; any additional
+        // ones selected become new assignments alongside it.
+        const [primaryStudentId, ...extraStudentIds] = selectedStudents;
         await updateAssignment(id!, {
           name,
           description,
@@ -97,18 +100,17 @@ export const InstructorAssignmentForm: React.FC = () => {
           deadline: new Date(deadline),
           configurationId,
           assignmentType,
-          studentId: selectedStudents[0],
+          studentId: primaryStudentId,
         });
-        showToast('success', 'Assignment updated successfully!');
-      } else if (isBulk) {
-        await createBulkAssignments(configurationId, selectedStudents, assignmentData);
-        showToast('success', `Created assignment for ${selectedStudents.length} students!`);
+        if (extraStudentIds.length > 0) {
+          await createBulkAssignments(configurationId, extraStudentIds, assignmentData);
+          showToast('success', `Assignment updated and added for ${extraStudentIds.length} more student(s)!`);
+        } else {
+          showToast('success', 'Assignment updated successfully!');
+        }
       } else {
-        await createAssignment({
-          ...assignmentData,
-          studentId: selectedStudents[0],
-        });
-        showToast('success', 'Assignment created successfully!');
+        await createBulkAssignments(configurationId, selectedStudents, assignmentData);
+        showToast('success', `Created assignment for ${selectedStudents.length} student(s)!`);
       }
       navigate('/instructor/assignments');
     } catch (error: any) {
@@ -119,15 +121,11 @@ export const InstructorAssignmentForm: React.FC = () => {
   };
 
   const toggleStudent = (studentId: string) => {
-    if (isBulk) {
-      setSelectedStudents(prev =>
-        prev.includes(studentId)
-          ? prev.filter(id => id !== studentId)
-          : [...prev, studentId]
-      );
-    } else {
-      setSelectedStudents([studentId]);
-    }
+    setSelectedStudents(prev =>
+      prev.includes(studentId)
+        ? prev.filter(id => id !== studentId)
+        : [...prev, studentId]
+    );
   };
 
   return (
@@ -266,26 +264,8 @@ export const InstructorAssignmentForm: React.FC = () => {
               <h2 className="text-2xl font-bold text-neutral-900">Student Selection</h2>
             </div>
 
-            {!isEditMode && (
-              <div className="flex items-center mb-4 p-3 bg-sky-50 rounded-xl border border-sky-200">
-                <input
-                  type="checkbox"
-                  id="bulk"
-                  checked={isBulk}
-                  onChange={e => {
-                    setIsBulk(e.target.checked);
-                    if (!e.target.checked) setSelectedStudents([]);
-                  }}
-                  className="w-4 h-4 text-primary-600 rounded focus:ring-primary-500 mr-3"
-                />
-                <label htmlFor="bulk" className="text-sm font-medium text-neutral-700 cursor-pointer">
-                  Assign to multiple students
-                </label>
-              </div>
-            )}
-
             <label className="block text-sm font-medium text-neutral-700 mb-2">
-              Select Student{isBulk ? 's' : ''} *
+              Select Student(s) *
               {selectedStudents.length > 0 && (
                 <span className="ml-2 text-primary-600">
                   ({selectedStudents.length} selected)
@@ -302,7 +282,7 @@ export const InstructorAssignmentForm: React.FC = () => {
                     className="flex items-center py-2 px-3 rounded-xl transition-colors hover:bg-white cursor-pointer"
                   >
                     <input
-                      type={isBulk ? 'checkbox' : 'radio'}
+                      type="checkbox"
                       checked={selectedStudents.includes(student.id)}
                       onChange={() => toggleStudent(student.id)}
                       className="w-4 h-4 text-primary-600 rounded focus:ring-primary-500 mr-3"
