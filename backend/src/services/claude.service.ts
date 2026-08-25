@@ -352,11 +352,13 @@ private buildSystemPrompt(config: NegotiationConfiguration): string {
     prompt += `- Return EXACTLY ${rubric.length} item(s) in "rubricScores", one per component, in the SAME ORDER as the rubric above.\n`;
     prompt += `- For each component, choose the single level (1, 2, or 3) whose description best matches the student's actual performance in the transcript.\n`;
     prompt += `- "levelAchieved" MUST be an integer 1, 2, or 3. Level 1 = lowest, Level 3 = highest.\n`;
+    prompt += `- Some rubric level descriptions list multiple acceptable approaches joined by "or" (e.g., "uses a package offer or a sequence of issues") - satisfying ANY ONE of them is enough to count as meeting that part of the level. Do NOT require the student to have done all of the listed approaches before awarding that level.\n`;
     prompt += `- The "explanation" must justify the chosen level with concrete evidence from the conversation.\n\n`;
 
     prompt += `CRITICAL - Improvement Area Rules:\n`;
     prompt += `- If "levelAchieved" is below the highest level for a component, "improvementArea" MUST contain specific, actionable advice for what the student should do differently next time, grounded in what happened in the transcript.\n`;
-    prompt += `- If "levelAchieved" is already the highest level for a component, set "improvementArea" to an empty string - do not invent an improvement for something the student already did well.\n\n`;
+    prompt += `- If "levelAchieved" is already the highest level for a component, set "improvementArea" to an empty string - do not invent an improvement for something the student already did well.\n`;
+    prompt += `- Some rubric level descriptions list multiple acceptable approaches joined by "or" (e.g., "uses a package offer or a sequence of issues") - any ONE of them satisfies the level, they are not all required. Never write "improvementArea" as if only one specific approach is the correct/required one. If the student used none of the listed approaches, present them as alternatives ("could open with a package offer, or alternatively sequence issues one at a time") rather than a single mandatory instruction. If the student already used one of the approaches, say so explicitly and frame the improvement as practicing an approach they have not tried yet (e.g., "You used a package offer effectively here - next time, try sequencing issues one at a time to build that skill too"), never as something they failed to do.\n\n`;
 
     prompt += `CRITICAL - Feedback Requirements:\n`;
     prompt += `- "feedback" is a BRIEF summary (1-2 sentences) of the student's overall performance across the rubric components. It is shown above a per-component list of improvement areas, so do NOT restate detailed improvement advice here - that belongs in each component's "improvementArea".\n`;
