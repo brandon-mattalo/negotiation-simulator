@@ -1,5 +1,7 @@
 # Negotiation Simulator - Setup Guide
 
+> **Deploying this for your own class online?** See [DEPLOYMENT.md](DEPLOYMENT.md) instead — a step-by-step guide with no coding required. This page is for running the code on your own computer, e.g. to modify it.
+
 ## Quick Start
 
 This guide will help you get the Negotiation Simulator up and running.
@@ -88,6 +90,11 @@ npm run prisma:migrate
 npm run prisma:seed
 ```
 
+There's no public sign-up page — only an instructor can create accounts, and only for (anonymous) students, from the Students page once logged in. So also create yourself an instructor login (username/password printed to the terminal):
+```bash
+npm run create-instructor
+```
+
 8. Start the backend server:
 ```bash
 npm run dev
@@ -118,15 +125,15 @@ The frontend should now be running on http://localhost:5173
 
 1. Open your browser and go to http://localhost:5173
 
-2. Register a new account:
-   - Click "Register"
-   - Create an instructor account
-   - Create a student account (in another browser or incognito window)
+2. Log in with the instructor account `create-instructor` printed for you above.
 
 3. As instructor:
    - Browse to Templates and create a configuration
-   - Create an assignment for the student
-   - Review sessions after student completes
+   - Go to the Students page and click **Create Student** — this generates an anonymous username and a password for you to hand to a real (or test) student
+   - Create an assignment for that student
+   - Review sessions after the student completes one
+
+   Open a private/incognito window and log in as the student you just created to try the flow below.
 
 4. As student:
    - View your assignments
@@ -183,60 +190,7 @@ npm install
 
 ## Production Deployment
 
-### Backend
-
-1. Build the backend:
-```bash
-cd backend
-npm run build
-```
-
-2. Set environment to production:
-```env
-NODE_ENV=production
-```
-
-3. Use a process manager like PM2:
-```bash
-npm install -g pm2
-pm2 start dist/server.js --name negotiation-backend
-```
-
-### Frontend
-
-1. Build the frontend:
-```bash
-cd frontend
-npm run build
-```
-
-2. Serve the dist folder with a web server (nginx, Apache, etc.)
-
-Or serve from the backend:
-```javascript
-// In server.ts
-app.use(express.static(path.join(__dirname, '../../frontend/dist')));
-```
-
-### Database
-
-1. Use a managed PostgreSQL service (AWS RDS, Heroku Postgres, etc.)
-2. Update DATABASE_URL in production environment
-3. Run migrations:
-```bash
-npm run prisma:migrate
-```
-
-## Environment Variables Reference
-
-### Backend (.env)
-
-- `DATABASE_URL`: PostgreSQL connection string
-- `JWT_SECRET`: Secret key for JWT tokens (keep secure!)
-- `CLAUDE_API_KEY`: Your Claude API key from Anthropic
-- `NODE_ENV`: 'development' or 'production'
-- `PORT`: Backend server port (default: 3001)
-- `FRONTEND_URL`: Frontend URL for CORS (default: http://localhost:5173)
+For putting this online (Railway + Vercel, no server management required), see **[DEPLOYMENT.md](DEPLOYMENT.md)** — it also has the full environment variable reference for every variable the app reads, required and optional.
 
 ## Next Steps
 

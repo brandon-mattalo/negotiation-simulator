@@ -22,6 +22,12 @@ A full-stack web application for academic negotiation simulation with Claude API
 **AI**: Claude API (Sonnet 4.5) for negotiation responses and evaluation
 **Auth**: JWT-based username/password authentication
 
+## 🚀 Want to use this with your own class?
+
+If you just want to deploy your own copy for your students — no coding required — see **[DEPLOYMENT.md](DEPLOYMENT.md)**, a step-by-step, non-technical-friendly guide (fork the repo, click through Railway and Vercel, done).
+
+The rest of this README is for running the code locally, e.g. if you want to modify it.
+
 ## Getting Started
 
 ### Prerequisites
@@ -47,7 +53,7 @@ npm install
 cp .env.example .env
 ```
 
-4. Update the `.env` file with your actual values:
+4. Update the `.env` file with your actual values (`DATABASE_URL`, `JWT_SECRET`, and `CLAUDE_API_KEY` are required for the app to run; everything else in `.env.example` is optional — see the full reference table in [DEPLOYMENT.md](DEPLOYMENT.md#environment-variable-reference) for what each one does):
 ```env
 DATABASE_URL=postgresql://user:password@localhost:5432/negotiation_db
 JWT_SECRET=your-secret-key-here-change-in-production
@@ -70,6 +76,11 @@ npm run prisma:migrate
 7. Seed the database with default templates:
 ```bash
 npm run prisma:seed
+```
+
+There's no public sign-up page — only an instructor can create accounts, and only for (anonymous) students, from the Students page once logged in. So also create yourself an instructor login (username/password printed to the terminal):
+```bash
+npm run create-instructor
 ```
 
 8. Start the development server:
