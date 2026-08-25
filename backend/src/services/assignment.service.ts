@@ -243,6 +243,9 @@ export class AssignmentService {
       availableUntil: Date;
       deadline: Date;
       isActive: boolean;
+      configurationId: string;
+      assignmentType: AssignmentType;
+      studentId: string;
     }>
   ): Promise<Assignment> {
     // Verify assignment exists and belongs to instructor
@@ -256,6 +259,25 @@ export class AssignmentService {
 
     if (existing.instructorId !== instructorId) {
       throw new Error('Unauthorized');
+    }
+
+    if (updates.configurationId) {
+      const config = await prisma.configuration.findUnique({
+        where: { id: updates.configurationId },
+      });
+      if (!config) {
+        throw new Error('Configuration not found');
+      }
+      if (config.instructorId !== instructorId) {
+        throw new Error('Configuration does not belong to this instructor');
+      }
+    }
+
+    if (updates.studentId) {
+      const authorized = await this.verifyStudentEnrollment(updates.studentId, instructorId);
+      if (!authorized) {
+        throw new Error('Student is not enrolled under you');
+      }
     }
 
     const assignment = await prisma.assignment.update({

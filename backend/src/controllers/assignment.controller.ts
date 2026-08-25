@@ -137,6 +137,9 @@ export class AssignmentController {
         'availableUntil',
         'deadline',
         'isActive',
+        'configurationId',
+        'assignmentType',
+        'studentId',
       ];
 
       for (const field of allowedFields) {
