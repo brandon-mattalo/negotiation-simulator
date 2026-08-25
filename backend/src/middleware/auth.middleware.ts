@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { verifyToken } from '../utils/jwt.util';
 import { authService } from '../services/auth.service';
+import { reviewerResetService } from '../services/reviewerReset.service';
 
 export interface AuthRequest extends Request {
   user?: {
@@ -40,6 +41,10 @@ export const authenticateToken = async (
     }
 
     req.user = payload;
+    // Fire-and-forget-safe (never throws) - lets the reviewer reset defer
+    // itself while either reviewer account is doing anything at all, not
+    // just mid-negotiation. A no-op for every other user.
+    await reviewerResetService.touchActivity(payload.username);
     next();
   } catch (error) {
     res.status(403).json({ error: 'Invalid or expired token' });

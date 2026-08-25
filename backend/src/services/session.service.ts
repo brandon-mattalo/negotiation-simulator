@@ -15,7 +15,8 @@ export class SessionService {
   async startSession(
     studentId: string,
     configId: string,
-    assignmentId?: string
+    assignmentId?: string,
+    ipScope?: string
   ): Promise<NegotiationSession> {
     // Get configuration
     const config = await prisma.configuration.findUnique({
@@ -57,11 +58,15 @@ export class SessionService {
       }
     }
 
-    // Check if student has an active session
+    // Check if student has an active session. For every real student
+    // (ipScope undefined) this is exactly the query that ran before - only
+    // reviewer-student's calls pass an IP, scoping the check to "this same
+    // visitor" instead of the whole shared account.
     const activeSession = await prisma.session.findFirst({
       where: {
         studentId,
         isActive: true,
+        ...(ipScope ? { ipAddress: ipScope } : {}),
       },
     });
 
@@ -86,6 +91,7 @@ export class SessionService {
         studentId,
         configurationId: configId,
         assignmentId: assignmentId || null,
+        ipAddress: ipScope || null,
         messages: JSON.stringify([initialMessage]),
         timeRemaining,
         isActive: true,
@@ -337,11 +343,12 @@ export class SessionService {
     return mappedSession;
   }
 
-  async getActiveSession(studentId: string): Promise<NegotiationSession | null> {
+  async getActiveSession(studentId: string, ipScope?: string): Promise<NegotiationSession | null> {
     const session = await prisma.session.findFirst({
       where: {
         studentId,
         isActive: true,
+        ...(ipScope ? { ipAddress: ipScope } : {}),
       },
       include: {
         configuration: true,

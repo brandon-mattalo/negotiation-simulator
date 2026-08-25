@@ -11,6 +11,25 @@ function reviewerUsernames() {
 }
 
 export const reviewerResetService = {
+  // Called from authenticateToken on every authenticated request from
+  // reviewer-prof or reviewer-student (browsing, reviewing a transcript,
+  // editing a config - not just sending negotiation messages), so maybeReset
+  // can tell "someone's around" apart from "nobody's touched this in a
+  // while," not just "is a negotiation currently in progress."
+  async touchActivity(username: string): Promise<void> {
+    const { professor, student } = reviewerUsernames();
+    if (username !== professor && username !== student) return;
+    try {
+      await prisma.reviewerResetState.upsert({
+        where: { id: STATE_ID },
+        update: { lastActivityAt: new Date() },
+        create: { id: STATE_ID, lastActivityAt: new Date() },
+      });
+    } catch (err) {
+      console.error('reviewerResetService.touchActivity failed:', err);
+    }
+  },
+
   // Called on every reviewerLogin (either role). No-ops unless a baseline has
   // been captured (via prisma/capture-reviewer-baseline.ts) and the cooldown
   // has elapsed - so a visitor's own edit-then-try flow in one sitting is
@@ -24,12 +43,14 @@ export const reviewerResetService = {
       const dueForReset = !state.lastResetAt || Date.now() - state.lastResetAt.getTime() > cooldownMs;
       if (!dueForReset) return;
 
-      // Write the marker first: a near-simultaneous second request then sees
-      // the cooldown as already reset and skips, narrowing the race window.
-      await prisma.reviewerResetState.update({
-        where: { id: STATE_ID },
-        data: { lastResetAt: new Date() },
-      });
+      // Defer if either account has done ANYTHING - not just sent a
+      // negotiation message - in the last few minutes (e.g. the professor
+      // hopping back in to read a transcript after the student session
+      // already ended, which the active-session check below can't see).
+      const quietMinutes = Number(process.env.REVIEWER_ACTIVITY_QUIET_MINUTES) || 5;
+      if (state.lastActivityAt && Date.now() - state.lastActivityAt.getTime() < quietMinutes * 60 * 1000) {
+        return; // recently active - defer the reset, don't touch lastResetAt
+      }
 
       const { professor, student } = reviewerUsernames();
       const [prof, stud] = await Promise.all([
@@ -37,6 +58,36 @@ export const reviewerResetService = {
         prisma.user.findUnique({ where: { username: student } }),
       ]);
       if (!prof) return;
+
+      // Being "due" only means the cooldown has elapsed - it doesn't mean
+      // it's safe to wipe. reviewer-student can now hold multiple concurrent
+      // active sessions (one per distinct visitor IP), so this checks ALL of
+      // them, not just one - a reset must be safe for every visitor
+      // currently negotiating, not merely whichever session happened to be
+      // checked. Deliberately not IP-scoped, unlike the checks elsewhere: a
+      // reset either proceeds (wiping everyone) or doesn't, there's no
+      // per-visitor version of "safe to wipe." An abandoned-but-still-
+      // "active" session doesn't need special handling - it gets cascaded
+      // away along with everything else once the wipe below proceeds.
+      if (stud) {
+        const activeSessions = await prisma.session.findMany({
+          where: { studentId: stud.id, isActive: true },
+        });
+        const idleMinutes = Number(process.env.REVIEWER_SESSION_IDLE_TIMEOUT_MINUTES) || 15;
+        const idleMs = idleMinutes * 60 * 1000;
+        const anyStillActive = activeSessions.some(s => Date.now() - s.updatedAt.getTime() <= idleMs);
+        if (anyStillActive) {
+          return; // at least one visitor's session is still in active use - defer
+        }
+      }
+
+      // Write the marker now that we're actually proceeding: a near-
+      // simultaneous second request then sees the cooldown as already reset
+      // and skips, narrowing the race window.
+      await prisma.reviewerResetState.update({
+        where: { id: STATE_ID },
+        data: { lastResetAt: new Date() },
+      });
 
       // Cascades away every Session + Assignment created under reviewer-prof
       // (Configuration -> Session/Assignment are onDelete: Cascade).

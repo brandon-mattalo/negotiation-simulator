@@ -19,13 +19,16 @@ interface LimitResult {
 }
 
 export const reviewerLimitsService = {
-  // Frees up reviewer-student's "one active session" slot if the current
-  // active session has had no activity for a while - i.e. a visitor closed
-  // the tab without ending it. A session still being actively used (recent
-  // updatedAt) is left alone.
-  async reapIdleSessionIfAny(studentId: string): Promise<void> {
+  // Frees up this visitor's own "one active session" slot if their session
+  // has had no activity for a while - i.e. they closed the tab without
+  // ending it. Scoped to ipScope so it never touches a DIFFERENT visitor's
+  // still-active session, now that reviewer-student supports concurrent
+  // sessions across different IPs.
+  async reapIdleSessionIfAny(studentId: string, ipScope?: string): Promise<void> {
     try {
-      const active = await prisma.session.findFirst({ where: { studentId, isActive: true } });
+      const active = await prisma.session.findFirst({
+        where: { studentId, isActive: true, ...(ipScope ? { ipAddress: ipScope } : {}) },
+      });
       if (!active) return;
 
       const idleMinutes = Number(process.env.REVIEWER_SESSION_IDLE_TIMEOUT_MINUTES) || 15;

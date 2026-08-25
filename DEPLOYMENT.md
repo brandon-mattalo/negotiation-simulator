@@ -144,6 +144,7 @@ Everything the backend reads from Railway's **Variables** tab:
 | `REVIEWER_ACCOUNTS_ENABLED` | Optional | Emergency off switch for the `/reviewer` page — set to `false` to instantly disable it without redeploying code. Only visible/changeable to you in Railway; students and the public never see this |
 | `REVIEWER_RESET_COOLDOWN_HOURS` | Optional (default `1`) | How often the public demo accounts' data resets back to the scenario you captured with `npm run reviewer:capture-baseline`. **This deletes any negotiation transcripts visitors created since the last reset** |
 | `REVIEWER_SESSION_IDLE_TIMEOUT_MINUTES` | Optional (default `15`) | If a demo visitor abandons a negotiation without ending it, how long before the next visitor is unblocked |
+| `REVIEWER_ACTIVITY_QUIET_MINUTES` | Optional (default `5`) | The hourly reset defers itself while either reviewer account has done anything at all (not just messaging - browsing, viewing a transcript, editing a config) within this many minutes |
 | `REVIEWER_STUDENT_MAX_SESSIONS_PER_HOUR` | Optional (default `10`) | Caps how many negotiations the public demo can run per hour, to bound your Claude API bill |
 | `REVIEWER_STUDENT_MAX_MESSAGES_PER_SESSION` | Optional (default `20`) | Caps how long a single public demo negotiation can run |
 

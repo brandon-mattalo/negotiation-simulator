@@ -8,9 +8,15 @@ export class SessionController {
     try {
       const studentId = req.user!.userId;
       const { configurationId, assignmentId } = req.body;
+      const isReviewerStudent = isReviewerStudentUsername(req.user!.username);
+      // reviewer-student is shared by many unrelated visitors over time, so
+      // its "one active session" rule is scoped per-IP instead of per-account
+      // - a different visitor gets their own concurrent session rather than
+      // being blocked by (or able to resume into) a stranger's negotiation.
+      const ip = isReviewerStudent ? req.ip : undefined;
 
-      if (isReviewerStudentUsername(req.user!.username)) {
-        await reviewerLimitsService.reapIdleSessionIfAny(studentId);
+      if (isReviewerStudent) {
+        await reviewerLimitsService.reapIdleSessionIfAny(studentId, ip);
         const limit = await reviewerLimitsService.checkSessionStartLimit(studentId);
         if (!limit.allowed) {
           res.status(429).json({ error: limit.reason });
@@ -18,7 +24,7 @@ export class SessionController {
         }
       }
 
-      const session = await sessionService.startSession(studentId, configurationId, assignmentId);
+      const session = await sessionService.startSession(studentId, configurationId, assignmentId, ip);
       res.status(201).json({ session });
     } catch (error: any) {
       res.status(400).json({ error: error.message });
@@ -101,7 +107,8 @@ export class SessionController {
   async getActive(req: AuthRequest, res: Response): Promise<void> {
     try {
       const studentId = req.user!.userId;
-      const session = await sessionService.getActiveSession(studentId);
+      const ip = isReviewerStudentUsername(req.user!.username) ? req.ip : undefined;
+      const session = await sessionService.getActiveSession(studentId, ip);
 
       if (!session) {
         res.status(404).json({ error: 'No active session found' });

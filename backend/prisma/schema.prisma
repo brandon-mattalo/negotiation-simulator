@@ -88,6 +88,10 @@ model Session {
   studentId       String    @map("student_id")
   configurationId String    @map("configuration_id")
   assignmentId    String?   @map("assignment_id")
+  // Only ever populated for reviewer-student's sessions (an IP-based proxy
+  // for "which anonymous visitor," since that one account is shared by many
+  // strangers over time). Always null for every real student session.
+  ipAddress       String?   @map("ip_address")
   messages        Json
   startTime       DateTime  @default(now()) @map("start_time")
   endTime         DateTime? @map("end_time")
@@ -162,6 +166,10 @@ model ReviewerResetState {
   id              String    @id @default("singleton")
   lastResetAt     DateTime? @map("last_reset_at")
   baselineConfigs Json?     @map("baseline_configs")
+  // Touched on every authenticated request from reviewer-prof or
+  // reviewer-student (not just negotiation messages), so a reset can defer
+  // itself while someone's browsing/reviewing, not only mid-negotiation.
+  lastActivityAt  DateTime? @map("last_activity_at")
 
   @@map("reviewer_reset_state")
 }
