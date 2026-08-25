@@ -9,6 +9,7 @@ import {
   Eye,
   BookOpen,
   Users,
+  ShieldCheck,
   LogOut,
   Menu,
   X,
@@ -43,6 +44,7 @@ export const Sidebar: React.FC = () => {
     { icon: <ClipboardList size={24} />, label: 'Assignments', path: '/instructor/assignments' },
     { icon: <Users size={24} />, label: 'Students', path: '/instructor/students' },
     { icon: <Eye size={24} />, label: 'Review', path: '/instructor/review' },
+    ...(user?.isAdmin ? [{ icon: <ShieldCheck size={24} />, label: 'Instructors', path: '/instructor/team' }] : []),
   ];
 
   const navItems = user?.role === 'instructor' ? instructorNavItems : studentNavItems;

@@ -15,6 +15,12 @@ import voiceRoutes from './routes/voice.routes';
 dotenv.config();
 
 const app = express();
+
+// Railway terminates TLS and proxies every request through a single reverse-
+// proxy hop; without this, express-rate-limit (and req.ip generally) sees
+// Railway's proxy IP for all traffic instead of each client's real IP.
+app.set('trust proxy', 1);
+
 const PORT = process.env.PORT || 3001;
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
 

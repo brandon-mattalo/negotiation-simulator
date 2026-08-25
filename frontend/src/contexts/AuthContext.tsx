@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { User, UserRole } from '../types/negotiation';
+import { User } from '../types/negotiation';
 import { apiService } from '../services/api.service';
 
 interface AuthContextValue {
@@ -7,7 +7,6 @@ interface AuthContextValue {
   token: string | null;
   login: (username: string, password: string) => Promise<User>;
   reviewerLogin: (role: 'professor' | 'student') => Promise<User>;
-  register: (username: string, password: string, role: UserRole) => Promise<void>;
   logout: () => void;
   isLoading: boolean;
 }
@@ -58,11 +57,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     return userData;
   };
 
-  const register = async (username: string, password: string, role: UserRole) => {
-    await apiService.register(username, password, role);
-    await login(username, password);
-  };
-
   const logout = () => {
     apiService.logout();
     setUser(null);
@@ -70,7 +64,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, login, reviewerLogin, register, logout, isLoading }}>
+    <AuthContext.Provider value={{ user, token, login, reviewerLogin, logout, isLoading }}>
       {children}
     </AuthContext.Provider>
   );

@@ -6,9 +6,10 @@ import { UserRole } from '../../types/negotiation';
 interface ProtectedRouteProps {
   children: React.ReactNode;
   requiredRole?: UserRole;
+  requireAdmin?: boolean;
 }
 
-export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requiredRole }) => {
+export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requiredRole, requireAdmin }) => {
   const { user, isLoading } = useAuth();
 
   if (isLoading) {
@@ -26,6 +27,10 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requir
 
   if (requiredRole && user.role !== requiredRole) {
     return <Navigate to={user.role === 'instructor' ? '/instructor' : '/student'} replace />;
+  }
+
+  if (requireAdmin && !user.isAdmin) {
+    return <Navigate to="/instructor" replace />;
   }
 
   return <>{children}</>;

@@ -6,12 +6,6 @@ import { validateRequestBody } from '../middleware/validation.middleware';
 const router = Router();
 
 router.post(
-  '/register',
-  validateRequestBody(['username', 'password', 'role']),
-  authController.register.bind(authController)
-);
-
-router.post(
   '/login',
   validateRequestBody(['username', 'password']),
   authController.login.bind(authController)

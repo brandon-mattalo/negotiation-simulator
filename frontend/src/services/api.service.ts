@@ -72,14 +72,6 @@ class ApiService {
   }
 
   // Auth
-  async register(username: string, password: string, role: UserRole): Promise<User> {
-    const data = await this.request<{ user: User }>('/auth/register', {
-      method: 'POST',
-      body: JSON.stringify({ username, password, role }),
-    });
-    return data.user;
-  }
-
   async login(username: string, password: string): Promise<{ token: string; user: User }> {
     const data = await this.request<{ token: string; user: User }>('/auth/login', {
       method: 'POST',
@@ -305,29 +297,18 @@ class ApiService {
     return data.students;
   }
 
-  async getUnenrolledStudents(): Promise<User[]> {
-    const data = await this.request<{ students: User[] }>('/instructor/unenrolled-students');
-    return data.students;
-  }
-
-  async enrollStudent(username: string): Promise<User> {
-    const data = await this.request<{ student: User }>('/instructor/enroll', {
-      method: 'POST',
-      body: JSON.stringify({ username }),
-    });
-    return data.student;
-  }
-
   async unenrollStudent(studentId: string): Promise<void> {
     await this.request(`/instructor/enroll/${studentId}`, { method: 'DELETE' });
   }
 
-  async createStudent(username: string, password: string): Promise<User> {
-    const data = await this.request<{ student: User }>('/instructor/create-student', {
+  // Username is always generated server-side (students are anonymous by
+  // design) - password is optional; if omitted, one is generated too.
+  async createStudent(password?: string): Promise<{ student: User; password: string }> {
+    const data = await this.request<{ student: User; password: string }>('/instructor/create-student', {
       method: 'POST',
-      body: JSON.stringify({ username, password }),
+      body: JSON.stringify(password ? { password } : {}),
     });
-    return data.student;
+    return data;
   }
 
   async getStudentPassword(studentId: string): Promise<string> {
@@ -349,6 +330,33 @@ class ApiService {
 
     return response.blob();
   }
+
+  // Admin: manage other instructor accounts
+  async getInstructors(): Promise<User[]> {
+    const data = await this.request<{ instructors: User[] }>('/instructor/instructors');
+    return data.instructors;
+  }
+
+  async createInstructor(username: string, password?: string, makeAdmin?: boolean): Promise<{ instructor: User; password: string }> {
+    return this.request<{ instructor: User; password: string }>('/instructor/instructors', {
+      method: 'POST',
+      body: JSON.stringify({ username, ...(password ? { password } : {}), makeAdmin: !!makeAdmin }),
+    });
+  }
+
+  async getInstructorPassword(instructorId: string): Promise<string> {
+    const data = await this.request<{ password: string }>(`/instructor/instructors/${instructorId}/password`);
+    return data.password;
+  }
+
+  async deactivateInstructor(instructorId: string): Promise<void> {
+    await this.request(`/instructor/instructors/${instructorId}/deactivate`, { method: 'POST' });
+  }
+
+  async reactivateInstructor(instructorId: string): Promise<void> {
+    await this.request(`/instructor/instructors/${instructorId}/reactivate`, { method: 'POST' });
+  }
+
   // Voice
   async tts(text: string): Promise<Blob> {
     const response = await fetch(`${this.baseUrl}/voice/tts`, {

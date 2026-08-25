@@ -1,12 +1,22 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { sessionService } from '../services/session.service';
+import { isReviewerStudentUsername, reviewerLimitsService } from '../services/reviewerLimits.service';
 
 export class SessionController {
   async start(req: AuthRequest, res: Response): Promise<void> {
     try {
       const studentId = req.user!.userId;
       const { configurationId, assignmentId } = req.body;
+
+      if (isReviewerStudentUsername(req.user!.username)) {
+        await reviewerLimitsService.reapIdleSessionIfAny(studentId);
+        const limit = await reviewerLimitsService.checkSessionStartLimit(studentId);
+        if (!limit.allowed) {
+          res.status(429).json({ error: limit.reason });
+          return;
+        }
+      }
 
       const session = await sessionService.startSession(studentId, configurationId, assignmentId);
       res.status(201).json({ session });
@@ -30,13 +40,22 @@ export class SessionController {
   async getById(req: AuthRequest, res: Response): Promise<void> {
     try {
       const { id } = req.params;
-      const session = await sessionService.getSession(id);
+      const owner = await sessionService.getSessionOwnerInfo(id);
 
-      if (!session) {
+      if (!owner) {
         res.status(404).json({ error: 'Session not found' });
         return;
       }
 
+      const userId = req.user!.userId;
+      const role = req.user!.role;
+      const authorized = role === 'instructor' ? owner.instructorId === userId : owner.studentId === userId;
+      if (!authorized) {
+        res.status(403).json({ error: 'Unauthorized' });
+        return;
+      }
+
+      const session = await sessionService.getSession(id);
       res.json({ session });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
@@ -48,6 +67,17 @@ export class SessionController {
       const { id } = req.params;
       const studentId = req.user!.userId;
       const { message, interruptedBot } = req.body;
+
+      if (isReviewerStudentUsername(req.user!.username)) {
+        const session = await sessionService.getSession(id);
+        if (session && session.studentId === studentId) {
+          const limit = reviewerLimitsService.checkMessageLimit(session.messages);
+          if (!limit.allowed) {
+            res.status(429).json({ error: limit.reason });
+            return;
+          }
+        }
+      }
 
       const result = await sessionService.sendMessage(id, message, studentId, interruptedBot);
       res.json(result);
@@ -87,10 +117,16 @@ export class SessionController {
   async delete(req: AuthRequest, res: Response): Promise<void> {
     try {
       const { id } = req.params;
+      const instructorId = req.user!.userId;
 
-      const session = await sessionService.getSession(id);
-      if (!session) {
+      const owner = await sessionService.getSessionOwnerInfo(id);
+      if (!owner) {
         res.status(404).json({ error: 'Session not found' });
+        return;
+      }
+
+      if (owner.instructorId !== instructorId) {
+        res.status(403).json({ error: 'Unauthorized' });
         return;
       }
 

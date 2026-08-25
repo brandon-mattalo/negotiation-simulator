@@ -3,8 +3,30 @@ import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcrypt';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { encrypt, decrypt } from '../utils/encryption.util';
+import { validatePassword, validateUsername } from '../utils/validation.util';
 
 const prisma = new PrismaClient();
+
+// Student accounts are always anonymous by design: the instructor never
+// types a username, so no real name/PII can end up in one.
+const USERNAME_ADJECTIVES = ['quick', 'bright', 'calm', 'bold', 'keen', 'swift', 'wise', 'fair', 'warm', 'cool'];
+const USERNAME_NOUNS = ['fox', 'owl', 'hawk', 'wolf', 'bear', 'deer', 'lynx', 'dove', 'lion', 'elk'];
+
+function generateAnonymousUsername(): string {
+  const adjective = USERNAME_ADJECTIVES[Math.floor(Math.random() * USERNAME_ADJECTIVES.length)];
+  const noun = USERNAME_NOUNS[Math.floor(Math.random() * USERNAME_NOUNS.length)];
+  const number = Math.floor(Math.random() * 900) + 100;
+  return `${adjective}-${noun}-${number}`;
+}
+
+function generatePassword(length = 10): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+  let password = '';
+  for (let i = 0; i < length; i++) {
+    password += chars[Math.floor(Math.random() * chars.length)];
+  }
+  return password;
+}
 
 export class InstructorController {
   async getStudentSessions(req: AuthRequest, res: Response): Promise<void> {
@@ -180,66 +202,6 @@ export class InstructorController {
     }
   }
 
-  async enrollStudent(req: AuthRequest, res: Response): Promise<void> {
-    try {
-      const instructorId = req.user!.userId;
-      const { username } = req.body;
-
-      if (!username) {
-        res.status(400).json({ error: 'Username is required' });
-        return;
-      }
-
-      const student = await prisma.user.findUnique({
-        where: { username },
-      });
-
-      if (!student) {
-        res.status(404).json({ error: 'Student not found' });
-        return;
-      }
-
-      if (student.role !== 'student') {
-        res.status(400).json({ error: 'User is not a student' });
-        return;
-      }
-
-      const existingEnrollment = await prisma.enrollment.findUnique({
-        where: { studentId: student.id },
-      });
-
-      if (existingEnrollment) {
-        res.status(400).json({ error: 'Student is already enrolled with an instructor' });
-        return;
-      }
-
-      const enrollment = await prisma.enrollment.create({
-        data: {
-          instructorId,
-          studentId: student.id,
-        },
-        include: {
-          student: {
-            select: {
-              id: true,
-              username: true,
-              createdAt: true,
-            },
-          },
-        },
-      });
-
-      res.json({
-        student: {
-          ...enrollment.student,
-          enrolledAt: enrollment.createdAt,
-        },
-      });
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
-  }
-
   async unenrollStudent(req: AuthRequest, res: Response): Promise<void> {
     try {
       const instructorId = req.user!.userId;
@@ -272,18 +234,25 @@ export class InstructorController {
   async createStudent(req: AuthRequest, res: Response): Promise<void> {
     try {
       const instructorId = req.user!.userId;
-      const { username, password } = req.body;
 
-      if (!username || !password) {
-        res.status(400).json({ error: 'Username and password are required' });
-        return;
+      // The username is always generated here, never taken from the request -
+      // students are anonymous by design, so there's no way for a real name
+      // or other identifying text to end up as a login username.
+      let username = generateAnonymousUsername();
+      for (let attempt = 0; attempt < 5; attempt++) {
+        const collision = await prisma.user.findUnique({ where: { username } });
+        if (!collision) break;
+        username = generateAnonymousUsername();
       }
 
-      // Check if username already exists
-      const existing = await prisma.user.findUnique({ where: { username } });
-      if (existing) {
-        res.status(400).json({ error: 'Username already exists' });
-        return;
+      let password = generatePassword();
+      if (typeof req.body.password === 'string' && req.body.password.trim()) {
+        const validation = validatePassword(req.body.password.trim());
+        if (!validation.valid) {
+          res.status(400).json({ error: validation.error });
+          return;
+        }
+        password = req.body.password.trim();
       }
 
       const passwordHash = await bcrypt.hash(password, 10);
@@ -322,6 +291,10 @@ export class InstructorController {
           createdAt: result.student.createdAt,
           enrolledAt: result.enrollment.createdAt,
         },
+        // Only returned here, once - if ENCRYPTION_KEY isn't set on the
+        // server, this is the only time the plaintext password is ever
+        // available, so the frontend must show it to the instructor now.
+        password,
       });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
@@ -398,26 +371,163 @@ export class InstructorController {
     }
   }
 
-  async getUnenrolledStudents(_req: AuthRequest, res: Response): Promise<void> {
+  // --- Admin: manage other instructor accounts. Every method here is also
+  // gated by requireAdmin at the route level; the extra checks below (no
+  // self-deactivation, can't strand the app with zero active admins) guard
+  // against an admin locking themselves or everyone else out.
+
+  async listInstructors(_req: AuthRequest, res: Response): Promise<void> {
     try {
-      const students = await prisma.user.findMany({
-        where: {
-          role: 'student',
-          enrollment: null,
-        },
-        select: {
-          id: true,
-          username: true,
-          createdAt: true,
-        },
+      const instructors = await prisma.user.findMany({
+        where: { role: 'instructor' },
+        select: { id: true, username: true, isAdmin: true, isActive: true, createdAt: true },
         orderBy: { username: 'asc' },
       });
-
-      res.json({ students });
+      res.json({ instructors });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
   }
+
+  async createInstructor(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const { username, makeAdmin } = req.body;
+
+      const usernameValidation = validateUsername(username);
+      if (!usernameValidation.valid) {
+        res.status(400).json({ error: usernameValidation.error });
+        return;
+      }
+
+      const existing = await prisma.user.findUnique({ where: { username } });
+      if (existing) {
+        res.status(400).json({ error: 'Username already exists' });
+        return;
+      }
+
+      let password = generatePassword();
+      if (typeof req.body.password === 'string' && req.body.password.trim()) {
+        const validation = validatePassword(req.body.password.trim());
+        if (!validation.valid) {
+          res.status(400).json({ error: validation.error });
+          return;
+        }
+        password = req.body.password.trim();
+      }
+
+      const passwordHash = await bcrypt.hash(password, 10);
+      let encryptedPassword: string | undefined;
+      if (process.env.ENCRYPTION_KEY) {
+        encryptedPassword = encrypt(password);
+      }
+
+      const instructor = await prisma.user.create({
+        data: {
+          username,
+          passwordHash,
+          encryptedPassword,
+          role: 'instructor',
+          isAdmin: !!makeAdmin,
+        },
+      });
+
+      res.json({
+        instructor: {
+          id: instructor.id,
+          username: instructor.username,
+          isAdmin: instructor.isAdmin,
+          isActive: instructor.isActive,
+          createdAt: instructor.createdAt,
+        },
+        // Only returned here, once - see the equivalent note on createStudent.
+        password,
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  }
+
+  async getInstructorPassword(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const { id } = req.params;
+
+      const instructor = await prisma.user.findUnique({
+        where: { id },
+        select: { role: true, encryptedPassword: true },
+      });
+
+      if (!instructor || instructor.role !== 'instructor') {
+        res.status(404).json({ error: 'Instructor not found' });
+        return;
+      }
+
+      if (!instructor.encryptedPassword) {
+        res.status(400).json({ error: 'No recoverable password for this account' });
+        return;
+      }
+
+      const password = decrypt(instructor.encryptedPassword);
+      res.json({ password });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  }
+
+  async deactivateInstructor(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const adminId = req.user!.userId;
+      const { id } = req.params;
+
+      if (id === adminId) {
+        res.status(400).json({ error: "You can't deactivate your own account." });
+        return;
+      }
+
+      const target = await prisma.user.findUnique({ where: { id } });
+      if (!target || target.role !== 'instructor') {
+        res.status(404).json({ error: 'Instructor not found' });
+        return;
+      }
+
+      if (!target.isActive) {
+        res.json({ success: true });
+        return;
+      }
+
+      if (target.isAdmin) {
+        const otherActiveAdmins = await prisma.user.count({
+          where: { role: 'instructor', isAdmin: true, isActive: true, id: { not: id } },
+        });
+        if (otherActiveAdmins === 0) {
+          res.status(400).json({ error: "Can't deactivate the only remaining admin." });
+          return;
+        }
+      }
+
+      await prisma.user.update({ where: { id }, data: { isActive: false } });
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  }
+
+  async reactivateInstructor(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const { id } = req.params;
+
+      const target = await prisma.user.findUnique({ where: { id } });
+      if (!target || target.role !== 'instructor') {
+        res.status(404).json({ error: 'Instructor not found' });
+        return;
+      }
+
+      await prisma.user.update({ where: { id }, data: { isActive: true } });
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  }
+
 }
 
 export const instructorController = new InstructorController();

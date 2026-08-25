@@ -366,6 +366,19 @@ export class SessionService {
     };
   }
 
+  async getSessionOwnerInfo(sessionId: string): Promise<{ studentId: string; instructorId: string } | null> {
+    const session = await prisma.session.findUnique({
+      where: { id: sessionId },
+      include: { configuration: { select: { instructorId: true } } },
+    });
+
+    if (!session) {
+      return null;
+    }
+
+    return { studentId: session.studentId, instructorId: session.configuration.instructorId };
+  }
+
   async cancelSession(sessionId: string, studentId: string): Promise<void> {
     const session = await prisma.session.findUnique({
       where: { id: sessionId },

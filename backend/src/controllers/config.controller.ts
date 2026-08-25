@@ -72,6 +72,18 @@ export class ConfigController {
         return;
       }
 
+      const userId = req.user!.userId;
+      const role = req.user!.role;
+      let authorized = config.instructorId === userId;
+      if (!authorized && role === 'student') {
+        const enrollment = await prisma.enrollment.findUnique({ where: { studentId: userId } });
+        authorized = !!enrollment && enrollment.instructorId === config.instructorId;
+      }
+      if (!authorized) {
+        res.status(403).json({ error: 'Unauthorized' });
+        return;
+      }
+
       const mapped = {
         id: config.id,
         instructorId: config.instructorId,

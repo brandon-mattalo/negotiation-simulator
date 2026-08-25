@@ -8,6 +8,7 @@ export interface TokenPayload {
   userId: string;
   username: string;
   role: string;
+  isAdmin: boolean;
 }
 
 export const generateToken = (user: User): string => {
@@ -15,6 +16,7 @@ export const generateToken = (user: User): string => {
     userId: user.id,
     username: user.username,
     role: user.role,
+    isAdmin: !!user.isAdmin,
   };
 
   return jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRATION });

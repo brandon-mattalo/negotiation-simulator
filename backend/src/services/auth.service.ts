@@ -2,8 +2,6 @@ import bcrypt from 'bcrypt';
 import { PrismaClient } from '@prisma/client';
 import { User, UserRole } from '../types/negotiation';
 import { generateToken } from '../utils/jwt.util';
-import { validateUsername, validatePassword } from '../utils/validation.util';
-import { encrypt } from '../utils/encryption.util';
 
 const prisma = new PrismaClient();
 const SALT_ROUNDS = 10;
@@ -17,55 +15,14 @@ export class InvalidCredentialsError extends Error {
   }
 }
 
-export class AuthService {
-  async register(username: string, password: string, role: UserRole): Promise<User> {
-    // Validate input
-    const usernameValidation = validateUsername(username);
-    if (!usernameValidation.valid) {
-      throw new Error(usernameValidation.error);
-    }
-
-    const passwordValidation = validatePassword(password);
-    if (!passwordValidation.valid) {
-      throw new Error(passwordValidation.error);
-    }
-
-    // Check if user already exists
-    const existingUser = await prisma.user.findUnique({
-      where: { username },
-    });
-
-    if (existingUser) {
-      throw new Error('Username already exists');
-    }
-
-    // Hash password
-    const passwordHash = await this.hashPassword(password);
-
-    // Encrypt password for recovery if encryption key is available
-    let encryptedPassword: string | undefined;
-    if (process.env.ENCRYPTION_KEY) {
-      encryptedPassword = encrypt(password);
-    }
-
-    // Create user
-    const user = await prisma.user.create({
-      data: {
-        username,
-        passwordHash,
-        encryptedPassword,
-        role,
-      },
-    });
-
-    return {
-      id: user.id,
-      username: user.username,
-      role: user.role as UserRole,
-      createdAt: user.createdAt,
-    };
+export class AccountDeactivatedError extends Error {
+  constructor() {
+    super('This account has been deactivated. Contact your administrator.');
+    this.name = 'AccountDeactivatedError';
   }
+}
 
+export class AuthService {
   async login(username: string, password: string): Promise<{ token: string; user: User }> {
     // Find user
     const user = await prisma.user.findUnique({
@@ -82,12 +39,18 @@ export class AuthService {
       throw new InvalidCredentialsError();
     }
 
+    if (!user.isActive) {
+      throw new AccountDeactivatedError();
+    }
+
     // Generate token
     const userObj: User = {
       id: user.id,
       username: user.username,
       role: user.role as UserRole,
       createdAt: user.createdAt,
+      isAdmin: user.isAdmin,
+      isActive: user.isActive,
     };
 
     const token = generateToken(userObj);
@@ -109,6 +72,8 @@ export class AuthService {
       username: user.username,
       role: user.role as UserRole,
       createdAt: user.createdAt,
+      isAdmin: user.isAdmin,
+      isActive: user.isActive,
     };
   }
 

@@ -12,7 +12,9 @@
     "prisma:migrate": "prisma migrate deploy",
     "prisma:migrate:dev": "prisma migrate dev",
     "prisma:seed": "tsx prisma/seed.ts",
-    "seed:accounts": "tsx prisma/seed-accounts.ts"
+    "create-instructor": "tsx prisma/create-instructor.ts",
+    "seed:reviewer-accounts": "tsx prisma/seed-reviewer-accounts.ts",
+    "reviewer:capture-baseline": "tsx prisma/capture-reviewer-baseline.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.9.1",

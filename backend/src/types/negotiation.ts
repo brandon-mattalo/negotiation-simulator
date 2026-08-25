@@ -5,6 +5,8 @@ export interface User {
   username: string;
   role: UserRole;
   createdAt: Date;
+  isAdmin?: boolean;
+  isActive?: boolean;
 }
 
 export type BotStrategy = 'collaborative' | 'competitive' | 'analytical' | 'emotional';

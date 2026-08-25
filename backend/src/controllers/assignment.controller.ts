@@ -32,6 +32,16 @@ export class AssignmentController {
         return;
       }
 
+      const userId = req.user!.userId;
+      const role = req.user!.role;
+      const authorized = role === 'instructor'
+        ? assignment.instructorId === userId
+        : assignment.studentId === userId;
+      if (!authorized) {
+        res.status(403).json({ error: 'Unauthorized' });
+        return;
+      }
+
       res.json({ assignment });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
@@ -161,6 +171,14 @@ export class AssignmentController {
   async getByStudent(req: AuthRequest, res: Response): Promise<void> {
     try {
       const { studentId } = req.params;
+      const instructorId = req.user!.userId;
+
+      const authorized = await assignmentService.verifyStudentEnrollment(studentId, instructorId);
+      if (!authorized) {
+        res.status(403).json({ error: 'Unauthorized' });
+        return;
+      }
+
       const assignments = await assignmentService.getAssignmentsForStudent(studentId);
       res.json({ assignments });
     } catch (error: any) {

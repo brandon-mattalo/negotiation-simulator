@@ -16,6 +16,7 @@ import { InstructorAssignmentForm } from './pages/InstructorAssignmentForm';
 import { InstructorReview } from './pages/InstructorReview';
 import { InstructorTemplates } from './pages/InstructorTemplates';
 import { InstructorStudents } from './pages/InstructorStudents';
+import { InstructorTeam } from './pages/InstructorTeam';
 import { StudentDashboard } from './pages/StudentDashboard';
 import { StudentAssignments } from './pages/StudentAssignments';
 import { StudentHistory } from './pages/StudentHistory';
@@ -120,6 +121,15 @@ const App: React.FC = () => {
                   element={
                     <ProtectedRoute requiredRole="instructor">
                       <InstructorStudents />
+                    </ProtectedRoute>
+                  }
+                />
+
+                <Route
+                  path="/instructor/team"
+                  element={
+                    <ProtectedRoute requiredRole="instructor" requireAdmin>
+                      <InstructorTeam />
                     </ProtectedRoute>
                   }
                 />

@@ -20,3 +20,17 @@ export const requireRole = (role: UserRole) => {
 
 export const requireInstructor = requireRole('instructor');
 export const requireStudent = requireRole('student');
+
+export const requireAdmin = (req: AuthRequest, res: Response, next: NextFunction): void => {
+  if (!req.user) {
+    res.status(401).json({ error: 'Authentication required' });
+    return;
+  }
+
+  if (req.user.role !== 'instructor' || !req.user.isAdmin) {
+    res.status(403).json({ error: 'Admin access required' });
+    return;
+  }
+
+  next();
+};

@@ -7,6 +7,7 @@ export interface AuthRequest extends Request {
     userId: string;
     username: string;
     role: string;
+    isAdmin: boolean;
   };
 }
 
@@ -26,10 +27,15 @@ export const authenticateToken = async (
 
     const payload = verifyToken(token);
 
-    // Verify user still exists
+    // Verify user still exists and hasn't been deactivated since this token
+    // was issued - re-checked on every request, not just at login.
     const user = await authService.getUserById(payload.userId);
     if (!user) {
       res.status(401).json({ error: 'User not found' });
+      return;
+    }
+    if (user.isActive === false) {
+      res.status(403).json({ error: 'This account has been deactivated.' });
       return;
     }
 

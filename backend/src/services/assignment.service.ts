@@ -121,6 +121,11 @@ export class AssignmentService {
     return assignments;
   }
 
+  async verifyStudentEnrollment(studentId: string, instructorId: string): Promise<boolean> {
+    const enrollment = await prisma.enrollment.findUnique({ where: { studentId } });
+    return !!enrollment && enrollment.instructorId === instructorId;
+  }
+
   async getAssignmentsForStudent(studentId: string): Promise<Assignment[]> {
     const assignments = await prisma.assignment.findMany({
       where: {

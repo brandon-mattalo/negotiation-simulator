@@ -1,5 +1,5 @@
-import React, { useEffect, useState, useMemo } from 'react';
-import { UserPlus, Users, UserMinus, Search, Eye, EyeOff, Download, Plus, RefreshCw } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Users, UserMinus, Eye, EyeOff, Download, Plus, RefreshCw, Copy, Check } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { apiService } from '../services/api.service';
 import { PageLayout } from '../components/Layout/PageLayout';
@@ -11,21 +11,22 @@ interface EnrolledStudent extends User {
   enrolledAt?: string;
 }
 
+interface CreatedStudent {
+  username: string;
+  password: string;
+}
+
 export const InstructorStudents: React.FC = () => {
   const [students, setStudents] = useState<EnrolledStudent[]>([]);
   const [loading, setLoading] = useState(true);
-  const [enrollModalOpen, setEnrollModalOpen] = useState(false);
   const [unenrollModalOpen, setUnenrollModalOpen] = useState(false);
   const [studentToUnenroll, setStudentToUnenroll] = useState<EnrolledStudent | null>(null);
-  const [unenrolledStudents, setUnenrolledStudents] = useState<User[]>([]);
-  const [loadingUnenrolled, setLoadingUnenrolled] = useState(false);
-  const [enrolling, setEnrolling] = useState(false);
   const [unenrolling, setUnenrolling] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
   const [createModalOpen, setCreateModalOpen] = useState(false);
-  const [newUsername, setNewUsername] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [creating, setCreating] = useState(false);
+  const [justCreated, setJustCreated] = useState<CreatedStudent | null>(null);
+  const [copied, setCopied] = useState(false);
   const [visiblePasswords, setVisiblePasswords] = useState<Record<string, string>>({});
   const [loadingPasswords, setLoadingPasswords] = useState<Record<string, boolean>>({});
   const { showToast } = useToast();
@@ -45,34 +46,6 @@ export const InstructorStudents: React.FC = () => {
   useEffect(() => {
     fetchStudents();
   }, []);
-
-  const openEnrollModal = async () => {
-    setEnrollModalOpen(true);
-    setSearchQuery('');
-    setLoadingUnenrolled(true);
-    try {
-      const data = await apiService.getUnenrolledStudents();
-      setUnenrolledStudents(data);
-    } catch (error: any) {
-      showToast('error', error.message || 'Failed to fetch available students');
-    } finally {
-      setLoadingUnenrolled(false);
-    }
-  };
-
-  const handleEnroll = async (username: string) => {
-    setEnrolling(true);
-    try {
-      const student = await apiService.enrollStudent(username);
-      setStudents(prev => [...prev, student as EnrolledStudent].sort((a, b) => a.username.localeCompare(b.username)));
-      setUnenrolledStudents(prev => prev.filter(s => s.username !== username));
-      showToast('success', `${username} enrolled successfully`);
-    } catch (error: any) {
-      showToast('error', error.message || 'Failed to enroll student');
-    } finally {
-      setEnrolling(false);
-    }
-  };
 
   const confirmUnenroll = (student: EnrolledStudent) => {
     setStudentToUnenroll(student);
@@ -95,22 +68,6 @@ export const InstructorStudents: React.FC = () => {
     }
   };
 
-  const filteredUnenrolled = useMemo(() => {
-    if (!searchQuery.trim()) return unenrolledStudents;
-    return unenrolledStudents.filter(s =>
-      s.username.toLowerCase().includes(searchQuery.toLowerCase())
-    );
-  }, [unenrolledStudents, searchQuery]);
-
-  const generateUsername = () => {
-    const adjectives = ['quick', 'bright', 'calm', 'bold', 'keen', 'swift', 'wise', 'fair', 'warm', 'cool'];
-    const nouns = ['fox', 'owl', 'hawk', 'wolf', 'bear', 'deer', 'lynx', 'dove', 'lion', 'elk'];
-    const adj = adjectives[Math.floor(Math.random() * adjectives.length)];
-    const noun = nouns[Math.floor(Math.random() * nouns.length)];
-    const num = Math.floor(Math.random() * 900) + 100;
-    setNewUsername(`${adj}-${noun}-${num}`);
-  };
-
   const generatePassword = () => {
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
     let pw = '';
@@ -118,24 +75,31 @@ export const InstructorStudents: React.FC = () => {
     setNewPassword(pw);
   };
 
+  const openCreateModal = () => {
+    setJustCreated(null);
+    setCopied(false);
+    generatePassword();
+    setCreateModalOpen(true);
+  };
+
   const handleCreateStudent = async () => {
-    if (!newUsername.trim() || !newPassword.trim()) {
-      showToast('error', 'Username and password are required');
-      return;
-    }
     setCreating(true);
     try {
-      const student = await apiService.createStudent(newUsername.trim(), newPassword.trim());
+      const { student, password } = await apiService.createStudent(newPassword.trim() || undefined);
       setStudents(prev => [...prev, student as EnrolledStudent].sort((a, b) => a.username.localeCompare(b.username)));
-      showToast('success', `Student "${newUsername}" created and enrolled`);
-      setCreateModalOpen(false);
-      setNewUsername('');
-      setNewPassword('');
+      setJustCreated({ username: student.username, password });
+      showToast('success', `Student "${student.username}" created`);
     } catch (error: any) {
       showToast('error', error.message || 'Failed to create student');
     } finally {
       setCreating(false);
     }
+  };
+
+  const handleCopyCredentials = () => {
+    if (!justCreated) return;
+    navigator.clipboard.writeText(`Username: ${justCreated.username}\nPassword: ${justCreated.password}`);
+    setCopied(true);
   };
 
   const togglePassword = async (studentId: string) => {
@@ -186,20 +150,12 @@ export const InstructorStudents: React.FC = () => {
             Export Credentials
           </Button>
           <Button
-            variant="secondary"
+            variant="primary"
             size="lg"
-            onClick={() => { setCreateModalOpen(true); setNewUsername(''); setNewPassword(''); }}
+            onClick={openCreateModal}
             leftIcon={<Plus size={20} />}
           >
             Create Student
-          </Button>
-          <Button
-            variant="primary"
-            size="lg"
-            onClick={openEnrollModal}
-            leftIcon={<UserPlus size={20} />}
-          >
-            Enroll Student
           </Button>
         </div>
       }
@@ -215,17 +171,17 @@ export const InstructorStudents: React.FC = () => {
           <div className="w-20 h-20 mx-auto mb-6 rounded-3xl bg-neutral-100 flex items-center justify-center">
             <Users size={40} className="text-neutral-400" />
           </div>
-          <h3 className="text-xl font-bold text-neutral-900 mb-2">No Students Enrolled</h3>
+          <h3 className="text-xl font-bold text-neutral-900 mb-2">No Students Yet</h3>
           <p className="text-neutral-600 mb-6">
-            Enroll students so they can access your configurations and assignments
+            Create anonymous student accounts so they can access your configurations and assignments
           </p>
           <Button
             variant="primary"
             size="lg"
-            onClick={openEnrollModal}
-            leftIcon={<UserPlus size={20} />}
+            onClick={openCreateModal}
+            leftIcon={<Plus size={20} />}
           >
-            Enroll Student
+            Create Student
           </Button>
         </Card>
       ) : (
@@ -285,56 +241,6 @@ export const InstructorStudents: React.FC = () => {
         </div>
       )}
 
-      {/* Enroll Student Modal */}
-      <Modal
-        isOpen={enrollModalOpen}
-        onClose={() => setEnrollModalOpen(false)}
-        title="Enroll Student"
-        size="md"
-      >
-        <div className="space-y-4">
-          <Input
-            placeholder="Search students..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            leftIcon={<Search size={18} />}
-          />
-
-          {loadingUnenrolled ? (
-            <div className="space-y-2">
-              {[...Array(3)].map((_, i) => (
-                <div key={i} className="h-12 bg-neutral-100 rounded-xl animate-pulse" />
-              ))}
-            </div>
-          ) : filteredUnenrolled.length === 0 ? (
-            <p className="text-neutral-500 text-center py-6">
-              {unenrolledStudents.length === 0
-                ? 'All students are already enrolled'
-                : 'No students match your search'}
-            </p>
-          ) : (
-            <div className="max-h-80 overflow-y-auto space-y-2">
-              {filteredUnenrolled.map((student) => (
-                <div
-                  key={student.id}
-                  className="flex items-center justify-between p-3 rounded-xl border border-neutral-200 hover:border-primary-300 hover:bg-primary-50 transition-colors"
-                >
-                  <span className="font-medium text-neutral-900">{student.username}</span>
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    onClick={() => handleEnroll(student.username)}
-                    disabled={enrolling}
-                  >
-                    Enroll
-                  </Button>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </Modal>
-
       {/* Create Student Modal */}
       <Modal
         isOpen={createModalOpen}
@@ -342,42 +248,56 @@ export const InstructorStudents: React.FC = () => {
         title="Create Student Account"
         size="md"
       >
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-neutral-700 mb-1">Username</label>
-            <div className="flex gap-2">
-              <Input
-                placeholder="Enter username"
-                value={newUsername}
-                onChange={(e) => setNewUsername(e.target.value)}
-              />
-              <Button variant="secondary" size="sm" onClick={generateUsername}>
-                Random
+        {justCreated ? (
+          <div className="space-y-4">
+            <p className="text-neutral-700">
+              Account created. Copy these credentials now and share them with the student — the password won't be shown again here unless password recovery is configured on the server.
+            </p>
+            <div className="rounded-xl border border-neutral-200 bg-neutral-50 p-4 space-y-2 font-mono text-sm">
+              <div><span className="text-neutral-500">Username:</span> {justCreated.username}</div>
+              <div><span className="text-neutral-500">Password:</span> {justCreated.password}</div>
+            </div>
+            <div className="flex gap-3 justify-end pt-2">
+              <Button
+                variant="secondary"
+                onClick={handleCopyCredentials}
+                leftIcon={copied ? <Check size={16} /> : <Copy size={16} />}
+              >
+                {copied ? 'Copied' : 'Copy'}
+              </Button>
+              <Button variant="primary" onClick={() => setCreateModalOpen(false)}>
+                Done
               </Button>
             </div>
           </div>
-          <div>
-            <label className="block text-sm font-medium text-neutral-700 mb-1">Password</label>
-            <div className="flex gap-2">
-              <Input
-                placeholder="Enter password"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-              />
-              <Button variant="secondary" size="sm" onClick={generatePassword}>
-                Random
+        ) : (
+          <div className="space-y-4">
+            <p className="text-sm text-neutral-500">
+              Student accounts are anonymous — a username is generated automatically, never something you type in.
+            </p>
+            <div>
+              <label className="block text-sm font-medium text-neutral-700 mb-1">Password</label>
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Enter password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                />
+                <Button variant="secondary" size="sm" onClick={generatePassword}>
+                  Random
+                </Button>
+              </div>
+            </div>
+            <div className="flex gap-3 justify-end pt-2">
+              <Button variant="secondary" onClick={() => setCreateModalOpen(false)}>
+                Cancel
+              </Button>
+              <Button variant="primary" onClick={handleCreateStudent} disabled={creating}>
+                {creating ? 'Creating...' : 'Create'}
               </Button>
             </div>
           </div>
-          <div className="flex gap-3 justify-end pt-2">
-            <Button variant="secondary" onClick={() => setCreateModalOpen(false)}>
-              Cancel
-            </Button>
-            <Button variant="primary" onClick={handleCreateStudent} disabled={creating}>
-              {creating ? 'Creating...' : 'Create'}
-            </Button>
-          </div>
-        </div>
+        )}
       </Modal>
 
       {/* Unenroll Confirmation Modal */}
