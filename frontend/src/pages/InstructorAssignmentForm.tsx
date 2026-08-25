@@ -9,12 +9,21 @@ import { useToast } from '../components/ui';
 import { AssignmentType } from '../types/negotiation';
 import { apiService } from '../services/api.service';
 
+// datetime-local inputs need "YYYY-MM-DDTHH:mm" in the viewer's local time,
+// not the UTC string that Date/JSON gives us.
+const toDatetimeLocalValue = (date: Date | string): string => {
+  const d = new Date(date);
+  const local = new Date(d.getTime() - d.getTimezoneOffset() * 60000);
+  return local.toISOString().slice(0, 16);
+};
+
 export const InstructorAssignmentForm: React.FC = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { configurations, fetchConfigurations } = useConfig();
-  const { createAssignment, updateAssignment, createBulkAssignments } = useAssignment();
+  const { assignments, fetchAssignments, createAssignment, updateAssignment, createBulkAssignments } = useAssignment();
   const { showToast } = useToast();
+  const isEditMode = Boolean(id);
 
   const [configurationId, setConfigurationId] = useState('');
   const [name, setName] = useState('');
@@ -32,7 +41,26 @@ export const InstructorAssignmentForm: React.FC = () => {
   useEffect(() => {
     fetchConfigurations();
     loadStudents();
+    if (id) {
+      fetchAssignments();
+    }
   }, []);
+
+  useEffect(() => {
+    if (!id || assignments.length === 0) return;
+    const assignment = assignments.find(a => a.id === id);
+    if (!assignment) return;
+
+    setConfigurationId(assignment.configurationId);
+    setName(assignment.name);
+    setDescription(assignment.description);
+    setAssignmentType(assignment.assignmentType);
+    setTheme(assignment.theme || '');
+    setAvailableFrom(toDatetimeLocalValue(assignment.availableFrom));
+    setAvailableUntil(toDatetimeLocalValue(assignment.availableUntil));
+    setDeadline(toDatetimeLocalValue(assignment.deadline));
+    setSelectedStudents([assignment.studentId]);
+  }, [id, assignments]);
 
   const loadStudents = async () => {
     try {
@@ -59,7 +87,19 @@ export const InstructorAssignmentForm: React.FC = () => {
     };
 
     try {
-      if (isBulk) {
+      if (isEditMode) {
+        // The backend only allows editing an assignment's own metadata and
+        // schedule - configuration, type, and student are fixed at creation.
+        await updateAssignment(id!, {
+          name,
+          description,
+          theme: theme || undefined,
+          availableFrom: new Date(availableFrom),
+          availableUntil: new Date(availableUntil),
+          deadline: new Date(deadline),
+        });
+        showToast('success', 'Assignment updated successfully!');
+      } else if (isBulk) {
         await createBulkAssignments(configurationId, selectedStudents, assignmentData);
         showToast('success', `Created assignment for ${selectedStudents.length} students!`);
       } else {
@@ -71,7 +111,7 @@ export const InstructorAssignmentForm: React.FC = () => {
       }
       navigate('/instructor/assignments');
     } catch (error: any) {
-      showToast('error', error.message || 'Failed to create assignment');
+      showToast('error', error.message || `Failed to ${isEditMode ? 'update' : 'create'} assignment`);
     } finally {
       setIsSubmitting(false);
     }
@@ -91,8 +131,12 @@ export const InstructorAssignmentForm: React.FC = () => {
 
   return (
     <PageLayout
-      title="Create Assignment"
-      subtitle="Assign a configuration to students with specific deadlines"
+      title={isEditMode ? 'Edit Assignment' : 'Create Assignment'}
+      subtitle={
+        isEditMode
+          ? 'Update the name, description, theme, or schedule for this assignment'
+          : 'Assign a configuration to students with specific deadlines'
+      }
       actions={
         <Button
           variant="secondary"
@@ -114,7 +158,8 @@ export const InstructorAssignmentForm: React.FC = () => {
                 value={configurationId}
                 onChange={e => setConfigurationId(e.target.value)}
                 required
-                className="w-full px-4 py-2.5 border border-neutral-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all"
+                disabled={isEditMode}
+                className="w-full px-4 py-2.5 border border-neutral-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all disabled:bg-neutral-100 disabled:text-neutral-500"
               >
                 <option value="">Select a configuration...</option>
                 {configurations.map(config => (
@@ -123,6 +168,11 @@ export const InstructorAssignmentForm: React.FC = () => {
                   </option>
                 ))}
               </select>
+              {isEditMode && (
+                <p className="mt-1.5 text-sm text-neutral-500">
+                  The configuration can't be changed after an assignment is created.
+                </p>
+              )}
             </div>
 
             <Input
@@ -151,7 +201,8 @@ export const InstructorAssignmentForm: React.FC = () => {
                 <select
                   value={assignmentType}
                   onChange={e => setAssignmentType(e.target.value as AssignmentType)}
-                  className="w-full px-4 py-2.5 border border-neutral-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all"
+                  disabled={isEditMode}
+                  className="w-full px-4 py-2.5 border border-neutral-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all disabled:bg-neutral-100 disabled:text-neutral-500"
                 >
                   <option value="practice">Practice</option>
                   <option value="exam">Exam</option>
@@ -221,21 +272,27 @@ export const InstructorAssignmentForm: React.FC = () => {
               <h2 className="text-2xl font-bold text-neutral-900">Student Selection</h2>
             </div>
 
-            <div className="flex items-center mb-4 p-3 bg-sky-50 rounded-xl border border-sky-200">
-              <input
-                type="checkbox"
-                id="bulk"
-                checked={isBulk}
-                onChange={e => {
-                  setIsBulk(e.target.checked);
-                  if (!e.target.checked) setSelectedStudents([]);
-                }}
-                className="w-4 h-4 text-primary-600 rounded focus:ring-primary-500 mr-3"
-              />
-              <label htmlFor="bulk" className="text-sm font-medium text-neutral-700 cursor-pointer">
-                Assign to multiple students
-              </label>
-            </div>
+            {isEditMode ? (
+              <p className="mb-2 text-sm text-neutral-500">
+                The assigned student can't be changed after an assignment is created.
+              </p>
+            ) : (
+              <div className="flex items-center mb-4 p-3 bg-sky-50 rounded-xl border border-sky-200">
+                <input
+                  type="checkbox"
+                  id="bulk"
+                  checked={isBulk}
+                  onChange={e => {
+                    setIsBulk(e.target.checked);
+                    if (!e.target.checked) setSelectedStudents([]);
+                  }}
+                  className="w-4 h-4 text-primary-600 rounded focus:ring-primary-500 mr-3"
+                />
+                <label htmlFor="bulk" className="text-sm font-medium text-neutral-700 cursor-pointer">
+                  Assign to multiple students
+                </label>
+              </div>
+            )}
 
             <label className="block text-sm font-medium text-neutral-700 mb-2">
               Select Student{isBulk ? 's' : ''} *
@@ -252,12 +309,15 @@ export const InstructorAssignmentForm: React.FC = () => {
                 students.map(student => (
                   <label
                     key={student.id}
-                    className="flex items-center py-2 px-3 hover:bg-white rounded-xl cursor-pointer transition-colors"
+                    className={`flex items-center py-2 px-3 rounded-xl transition-colors ${
+                      isEditMode ? 'opacity-60' : 'hover:bg-white cursor-pointer'
+                    }`}
                   >
                     <input
                       type={isBulk ? 'checkbox' : 'radio'}
                       checked={selectedStudents.includes(student.id)}
                       onChange={() => toggleStudent(student.id)}
+                      disabled={isEditMode}
                       className="w-4 h-4 text-primary-600 rounded focus:ring-primary-500 mr-3"
                     />
                     <span className="text-neutral-900">{student.username}</span>
@@ -285,7 +345,7 @@ export const InstructorAssignmentForm: React.FC = () => {
                 disabled={selectedStudents.length === 0}
                 leftIcon={<Save size={18} />}
               >
-                Create Assignment
+                {isEditMode ? 'Update Assignment' : 'Create Assignment'}
               </Button>
             </div>
           </Card>

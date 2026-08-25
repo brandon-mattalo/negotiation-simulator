@@ -89,6 +89,15 @@ const App: React.FC = () => {
                 />
 
                 <Route
+                  path="/instructor/assignments/:id/edit"
+                  element={
+                    <ProtectedRoute requiredRole="instructor">
+                      <InstructorAssignmentForm />
+                    </ProtectedRoute>
+                  }
+                />
+
+                <Route
                   path="/instructor/review"
                   element={
                     <ProtectedRoute requiredRole="instructor">
