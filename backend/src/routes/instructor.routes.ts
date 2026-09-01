@@ -15,13 +15,33 @@ router.get('/sessions/:id', instructorController.getSessionById.bind(instructorC
 
 router.get('/students', instructorController.getStudents.bind(instructorController));
 
-router.delete('/enroll/:studentId', instructorController.unenrollStudent.bind(instructorController));
+router.get('/roster', instructorController.getRoster.bind(instructorController));
 
-router.post('/create-student', instructorController.createStudent.bind(instructorController));
+router.post('/students/bulk-create', instructorController.bulkCreateStudents.bind(instructorController));
+
+router.post('/students/bulk-assign-class', instructorController.bulkAssignClass.bind(instructorController));
+
+router.post('/students/bulk-archive', instructorController.bulkArchiveStudents.bind(instructorController));
+
+router.post('/students/bulk-unarchive', instructorController.bulkUnarchiveStudents.bind(instructorController));
+
+router.post('/students/bulk-delete', instructorController.bulkDeleteStudents.bind(instructorController));
 
 router.get('/students/:studentId/password', instructorController.getStudentPassword.bind(instructorController));
 
 router.get('/students/export', instructorController.exportStudentCredentials.bind(instructorController));
+
+router.get('/classes', instructorController.listClasses.bind(instructorController));
+
+router.post('/classes', instructorController.createClass.bind(instructorController));
+
+router.patch('/classes/:id', instructorController.renameClass.bind(instructorController));
+
+router.post('/classes/:id/archive', instructorController.archiveClass.bind(instructorController));
+
+router.post('/classes/:id/unarchive', instructorController.unarchiveClass.bind(instructorController));
+
+router.delete('/classes/:id', instructorController.deleteClass.bind(instructorController));
 
 // Admin-only: manage other instructor accounts
 router.get('/instructors', requireAdmin, instructorController.listInstructors.bind(instructorController));

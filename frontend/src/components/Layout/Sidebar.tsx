@@ -9,6 +9,7 @@ import {
   Eye,
   BookOpen,
   Users,
+  GraduationCap,
   ShieldCheck,
   LogOut,
   Menu,
@@ -43,6 +44,7 @@ export const Sidebar: React.FC = () => {
     { icon: <Settings size={24} />, label: 'Configurations', path: '/instructor/configurations' },
     { icon: <ClipboardList size={24} />, label: 'Assignments', path: '/instructor/assignments' },
     { icon: <Users size={24} />, label: 'Students', path: '/instructor/students' },
+    { icon: <GraduationCap size={24} />, label: 'Classes', path: '/instructor/classes' },
     { icon: <Eye size={24} />, label: 'Review', path: '/instructor/review' },
     ...(user?.isAdmin ? [{ icon: <ShieldCheck size={24} />, label: 'Instructors', path: '/instructor/team' }] : []),
   ];

@@ -9,6 +9,34 @@ export interface User {
   isActive?: boolean;
 }
 
+export interface Class {
+  id: string;
+  instructorId: string;
+  name: string;
+  isArchived: boolean;
+  studentCount?: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// A student row as returned by the roster endpoint - includes class
+// membership and archive status, unlike the flat User-based student list.
+export interface RosterStudent {
+  id: string;
+  username: string;
+  isActive: boolean;
+  createdAt: Date;
+  enrolledAt: Date;
+  classId: string | null;
+  className?: string;
+}
+
+export interface Roster {
+  classes: Array<{ class: { id: string; name: string; isArchived: boolean }; students: RosterStudent[] }>;
+  unassigned: RosterStudent[];
+  archived: RosterStudent[];
+}
+
 export type BotStrategy = 'collaborative' | 'competitive' | 'analytical' | 'emotional';
 export type Temperament = number; // 1-10
 export type DifficultyLevel = 'easy' | 'medium' | 'hard' | 'expert';

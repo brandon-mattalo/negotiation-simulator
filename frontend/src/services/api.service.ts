@@ -8,6 +8,8 @@ import {
   Template,
   Assignment,
   AssignmentType,
+  Class,
+  Roster,
 } from '../types/negotiation';
 
 // status 0 marks a request that never got a response (network/CORS/DNS failure)
@@ -288,18 +290,48 @@ class ApiService {
     return data.students;
   }
 
-  async unenrollStudent(studentId: string): Promise<void> {
-    await this.request(`/instructor/enroll/${studentId}`, { method: 'DELETE' });
+  async getRoster(): Promise<Roster> {
+    return this.request<Roster>('/instructor/roster');
   }
 
   // Username is always generated server-side (students are anonymous by
-  // design) - password is optional; if omitted, one is generated too.
-  async createStudent(password?: string): Promise<{ student: User; password: string }> {
-    const data = await this.request<{ student: User; password: string }>('/instructor/create-student', {
+  // design). A custom password is only accepted when count === 1.
+  async bulkCreateStudents(count: number, opts?: { classId?: string; password?: string }): Promise<Array<{ username: string; password: string }>> {
+    const data = await this.request<{ students: Array<{ username: string; password: string }> }>('/instructor/students/bulk-create', {
       method: 'POST',
-      body: JSON.stringify(password ? { password } : {}),
+      body: JSON.stringify({ count, ...(opts?.classId ? { classId: opts.classId } : {}), ...(opts?.password ? { password: opts.password } : {}) }),
     });
-    return data;
+    return data.students;
+  }
+
+  // classId: null moves students to Unassigned - this also covers "unenroll".
+  async bulkAssignClass(studentIds: string[], classId: string | null): Promise<void> {
+    await this.request('/instructor/students/bulk-assign-class', {
+      method: 'POST',
+      body: JSON.stringify({ studentIds, classId }),
+    });
+  }
+
+  async bulkArchiveStudents(studentIds: string[]): Promise<void> {
+    await this.request('/instructor/students/bulk-archive', {
+      method: 'POST',
+      body: JSON.stringify({ studentIds }),
+    });
+  }
+
+  async bulkUnarchiveStudents(studentIds: string[]): Promise<void> {
+    await this.request('/instructor/students/bulk-unarchive', {
+      method: 'POST',
+      body: JSON.stringify({ studentIds }),
+    });
+  }
+
+  async bulkDeleteStudents(studentIds: string[]): Promise<number> {
+    const data = await this.request<{ deletedCount: number }>('/instructor/students/bulk-delete', {
+      method: 'POST',
+      body: JSON.stringify({ studentIds }),
+    });
+    return data.deletedCount;
   }
 
   async getStudentPassword(studentId: string): Promise<string> {
@@ -307,8 +339,9 @@ class ApiService {
     return data.password;
   }
 
-  async exportStudentCredentials(): Promise<Blob> {
-    const response = await fetch(`${this.baseUrl}/instructor/students/export`, {
+  async exportStudentCredentials(classId?: string): Promise<Blob> {
+    const query = classId ? `?classId=${classId}` : '';
+    const response = await fetch(`${this.baseUrl}/instructor/students/export${query}`, {
       headers: {
         ...(this.token ? { 'Authorization': `Bearer ${this.token}` } : {}),
       },
@@ -320,6 +353,40 @@ class ApiService {
     }
 
     return response.blob();
+  }
+
+  // Classes
+  async getClasses(): Promise<Class[]> {
+    const data = await this.request<{ classes: Class[] }>('/instructor/classes');
+    return data.classes;
+  }
+
+  async createClass(name: string): Promise<Class> {
+    const data = await this.request<{ class: Class }>('/instructor/classes', {
+      method: 'POST',
+      body: JSON.stringify({ name }),
+    });
+    return data.class;
+  }
+
+  async renameClass(id: string, name: string): Promise<Class> {
+    const data = await this.request<{ class: Class }>(`/instructor/classes/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ name }),
+    });
+    return data.class;
+  }
+
+  async archiveClass(id: string): Promise<void> {
+    await this.request(`/instructor/classes/${id}/archive`, { method: 'POST' });
+  }
+
+  async unarchiveClass(id: string): Promise<void> {
+    await this.request(`/instructor/classes/${id}/unarchive`, { method: 'POST' });
+  }
+
+  async deleteClass(id: string): Promise<void> {
+    await this.request(`/instructor/classes/${id}`, { method: 'DELETE' });
   }
 
   // Admin: manage other instructor accounts

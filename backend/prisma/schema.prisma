@@ -52,6 +52,7 @@ model User {
   instructorAssignments Assignment[] @relation("InstructorAssignments")
   enrolledStudents  Enrollment[] @relation("InstructorEnrollments")
   enrollment        Enrollment?  @relation("StudentEnrollment")
+  classes           Class[]      @relation("InstructorClasses")
 
   @@map("users")
 }
@@ -178,10 +179,32 @@ model Enrollment {
   id            String   @id @default(uuid())
   instructorId  String   @map("instructor_id")
   studentId     String   @unique @map("student_id")
+  // null = Unassigned. Archiving a student (or archiving/deleting their class)
+  // always clears this back to null - a student's class membership never
+  // survives being archived, and unarchiving never restores it either.
+  classId       String?  @map("class_id")
   createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
 
   instructor    User     @relation("InstructorEnrollments", fields: [instructorId], references: [id], onDelete: Cascade)
   student       User     @relation("StudentEnrollment", fields: [studentId], references: [id], onDelete: Cascade)
+  class         Class?   @relation(fields: [classId], references: [id], onDelete: SetNull)
 
+  @@index([classId])
   @@map("enrollments")
+}
+
+model Class {
+  id            String   @id @default(uuid())
+  instructorId  String   @map("instructor_id")
+  name          String
+  isArchived    Boolean  @default(false) @map("is_archived")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  instructor    User         @relation("InstructorClasses", fields: [instructorId], references: [id], onDelete: Cascade)
+  enrollments   Enrollment[]
+
+  @@index([instructorId])
+  @@map("classes")
 }

@@ -4,20 +4,10 @@ import bcrypt from 'bcrypt';
 import { AuthRequest } from '../middleware/auth.middleware';
 import { encrypt, decrypt } from '../utils/encryption.util';
 import { validatePassword, validateUsername } from '../utils/validation.util';
+import { classService } from '../services/class.service';
+import { studentService } from '../services/student.service';
 
 const prisma = new PrismaClient();
-
-// Student accounts are always anonymous by design: the instructor never
-// types a username, so no real name/PII can end up in one.
-const USERNAME_ADJECTIVES = ['quick', 'bright', 'calm', 'bold', 'keen', 'swift', 'wise', 'fair', 'warm', 'cool'];
-const USERNAME_NOUNS = ['fox', 'owl', 'hawk', 'wolf', 'bear', 'deer', 'lynx', 'dove', 'lion', 'elk'];
-
-function generateAnonymousUsername(): string {
-  const adjective = USERNAME_ADJECTIVES[Math.floor(Math.random() * USERNAME_ADJECTIVES.length)];
-  const noun = USERNAME_NOUNS[Math.floor(Math.random() * USERNAME_NOUNS.length)];
-  const number = Math.floor(Math.random() * 900) + 100;
-  return `${adjective}-${noun}-${number}`;
-}
 
 function generatePassword(length = 10): string {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
@@ -171,12 +161,17 @@ export class InstructorController {
     }
   }
 
+  // Flat, active-only list - used by pickers (e.g. the assignment student
+  // selector) that just need "who can I assign this to," not class/archive
+  // grouping. Assigning work to an archived student doesn't make sense, so
+  // archived students are excluded here (the richer getRoster below is what
+  // the Students management page uses instead).
   async getStudents(req: AuthRequest, res: Response): Promise<void> {
     try {
       const instructorId = req.user!.userId;
 
       const enrollments = await prisma.enrollment.findMany({
-        where: { instructorId },
+        where: { instructorId, student: { isActive: true } },
         include: {
           student: {
             select: {
@@ -202,102 +197,158 @@ export class InstructorController {
     }
   }
 
-  async unenrollStudent(req: AuthRequest, res: Response): Promise<void> {
+  async getRoster(req: AuthRequest, res: Response): Promise<void> {
     try {
-      const instructorId = req.user!.userId;
-      const { studentId } = req.params;
-
-      const enrollment = await prisma.enrollment.findUnique({
-        where: { studentId },
-      });
-
-      if (!enrollment) {
-        res.status(404).json({ error: 'Enrollment not found' });
-        return;
-      }
-
-      if (enrollment.instructorId !== instructorId) {
-        res.status(403).json({ error: 'Not authorized to unenroll this student' });
-        return;
-      }
-
-      await prisma.enrollment.delete({
-        where: { studentId },
-      });
-
-      res.json({ success: true });
+      const roster = await studentService.getRoster(req.user!.userId);
+      res.json(roster);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
   }
 
-  async createStudent(req: AuthRequest, res: Response): Promise<void> {
+  async bulkCreateStudents(req: AuthRequest, res: Response): Promise<void> {
     try {
       const instructorId = req.user!.userId;
+      const { count, classId, password } = req.body;
 
-      // The username is always generated here, never taken from the request -
-      // students are anonymous by design, so there's no way for a real name
-      // or other identifying text to end up as a login username.
-      let username = generateAnonymousUsername();
-      for (let attempt = 0; attempt < 5; attempt++) {
-        const collision = await prisma.user.findUnique({ where: { username } });
-        if (!collision) break;
-        username = generateAnonymousUsername();
-      }
-
-      let password = generatePassword();
-      if (typeof req.body.password === 'string' && req.body.password.trim()) {
-        const validation = validatePassword(req.body.password.trim());
-        if (!validation.valid) {
-          res.status(400).json({ error: validation.error });
-          return;
-        }
-        password = req.body.password.trim();
-      }
-
-      const passwordHash = await bcrypt.hash(password, 10);
-
-      // Encrypt password for recovery
-      let encryptedPassword: string | undefined;
-      if (process.env.ENCRYPTION_KEY) {
-        encryptedPassword = encrypt(password);
-      }
-
-      // Create student and enroll in a transaction
-      const result = await prisma.$transaction(async (tx) => {
-        const student = await tx.user.create({
-          data: {
-            username,
-            passwordHash,
-            encryptedPassword,
-            role: 'student',
-          },
-        });
-
-        const enrollment = await tx.enrollment.create({
-          data: {
-            instructorId,
-            studentId: student.id,
-          },
-        });
-
-        return { student, enrollment };
+      const students = await studentService.bulkCreateStudents(instructorId, Number(count) || 0, {
+        classId: classId || null,
+        password: typeof password === 'string' && password.trim() ? password.trim() : undefined,
       });
 
-      res.json({
-        student: {
-          id: result.student.id,
-          username: result.student.username,
-          createdAt: result.student.createdAt,
-          enrolledAt: result.enrollment.createdAt,
-        },
-        // Only returned here, once - if ENCRYPTION_KEY isn't set on the
-        // server, this is the only time the plaintext password is ever
-        // available, so the frontend must show it to the instructor now.
-        password,
-      });
+      res.json({ students });
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  }
+
+  async bulkAssignClass(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const instructorId = req.user!.userId;
+      const { studentIds, classId } = req.body;
+      if (!Array.isArray(studentIds) || studentIds.length === 0) {
+        res.status(400).json({ error: 'studentIds is required' });
+        return;
+      }
+      await studentService.bulkAssignClass(instructorId, studentIds, classId || null);
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  }
+
+  async bulkArchiveStudents(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const instructorId = req.user!.userId;
+      const { studentIds } = req.body;
+      if (!Array.isArray(studentIds) || studentIds.length === 0) {
+        res.status(400).json({ error: 'studentIds is required' });
+        return;
+      }
+      await studentService.bulkArchiveStudents(instructorId, studentIds);
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  }
+
+  async bulkUnarchiveStudents(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const instructorId = req.user!.userId;
+      const { studentIds } = req.body;
+      if (!Array.isArray(studentIds) || studentIds.length === 0) {
+        res.status(400).json({ error: 'studentIds is required' });
+        return;
+      }
+      await studentService.bulkUnarchiveStudents(instructorId, studentIds);
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  }
+
+  async bulkDeleteStudents(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const instructorId = req.user!.userId;
+      const { studentIds } = req.body;
+      if (!Array.isArray(studentIds) || studentIds.length === 0) {
+        res.status(400).json({ error: 'studentIds is required' });
+        return;
+      }
+      const deletedCount = await studentService.bulkDeleteStudents(instructorId, studentIds);
+      res.json({ success: true, deletedCount });
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  }
+
+  // --- Classes
+
+  async listClasses(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const classes = await classService.listClasses(req.user!.userId);
+      res.json({ classes });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
+    }
+  }
+
+  async createClass(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const { name } = req.body;
+      if (typeof name !== 'string' || !name.trim()) {
+        res.status(400).json({ error: 'Class name is required' });
+        return;
+      }
+      const cls = await classService.createClass(req.user!.userId, name);
+      res.json({ class: cls });
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  }
+
+  async renameClass(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const { id } = req.params;
+      const { name } = req.body;
+      if (typeof name !== 'string' || !name.trim()) {
+        res.status(400).json({ error: 'Class name is required' });
+        return;
+      }
+      const cls = await classService.renameClass(id, req.user!.userId, name);
+      res.json({ class: cls });
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  }
+
+  async archiveClass(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const { id } = req.params;
+      await classService.archiveClass(id, req.user!.userId);
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  }
+
+  async unarchiveClass(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const { id } = req.params;
+      await classService.unarchiveClass(id, req.user!.userId);
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
+    }
+  }
+
+  async deleteClass(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const { id } = req.params;
+      await classService.deleteClass(id, req.user!.userId);
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
     }
   }
 
@@ -336,13 +387,15 @@ export class InstructorController {
   async exportStudentCredentials(req: AuthRequest, res: Response): Promise<void> {
     try {
       const instructorId = req.user!.userId;
+      const { classId } = req.query;
 
       const enrollments = await prisma.enrollment.findMany({
-        where: { instructorId },
+        where: { instructorId, ...(classId ? { classId: classId as string } : {}) },
         include: {
           student: {
             select: { username: true, encryptedPassword: true },
           },
+          class: { select: { name: true } },
         },
         orderBy: { student: { username: 'asc' } },
       });
@@ -358,10 +411,10 @@ export class InstructorController {
         } else {
           password = '(no recoverable password)';
         }
-        return { username: e.student.username, password };
+        return { username: e.student.username, password, className: e.class?.name || 'Unassigned' };
       });
 
-      const csv = 'username,password\n' + rows.map((r) => `${r.username},${r.password}`).join('\n');
+      const csv = 'username,password,class\n' + rows.map((r) => `${r.username},${r.password},${r.className}`).join('\n');
 
       res.setHeader('Content-Type', 'text/csv');
       res.setHeader('Content-Disposition', 'attachment; filename="student_credentials.csv"');
